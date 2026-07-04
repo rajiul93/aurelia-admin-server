@@ -1,0 +1,221 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPERADMIN
+  MANAGER
+}
+
+enum Language {
+  en
+  es
+  fr
+}
+
+enum SubscriptionType {
+  TOUR
+  DIRECT
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PlanType {
+  SINGLE
+  MULTI
+  UNLIMITED
+}
+
+enum BillingCycle {
+  ONE_MONTH
+  THREE_MONTHS
+}
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  age         Int
+  email       String   @unique
+  countryCode String
+  phone       String   @unique
+  password    String
+  language    Language @default(en)
+  role        Role     @default(USER)
+
+  avatarMediaId String?
+  avatarMedia   Media?  @relation("UserAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+
+  subscription Subscription?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id String @id @default(cuid())
+
+  packageName        String
+  packageDescription String
+  type               SubscriptionType
+  status             SubscriptionStatus @default(PENDING)
+  startDate          DateTime
+  expiryDate         DateTime
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ===== Only for TOUR activation =====
+  travellerEmail String?
+  ticketNumber   String?
+  serialNumber   String?
+
+  // ===== Only for DIRECT payment =====
+  paymentId     String?
+  transactionId String?
+  amount        Float?
+
+  activatedById String?
+  activatedAt   DateTime?
+
+  planId String
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Plan {
+  id            String         @id @default(cuid())
+  name          String
+  description   String?
+  type          PlanType
+  maxLocations  Int?
+  price         Decimal        @db.Decimal(10, 2)
+  currency      String         @default("USD")
+  billingCycle  BillingCycle
+  isActive      Boolean        @default(true)
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FaqCategory {
+  id           String                   @id @default(cuid())
+  imageMediaId String?
+  imageMedia   Media?                   @relation(fields: [imageMediaId], references: [id], onDelete: SetNull)
+  faqs         Faq[]
+  translations FaqCategoryTranslation[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+}
+
+model FaqCategoryTranslation {
+  id         String      @id @default(cuid())
+  categoryId String
+  category   FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  language   Language
+  title      String
+  slug       String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([categoryId, language])
+  @@unique([language, slug])
+}
+
+model Faq {
+  id           String           @id @default(cuid())
+  categoryId   String
+  category     FaqCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  translations FaqTranslation[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model FaqTranslation {
+  id          String   @id @default(cuid())
+  faqId       String
+  faq         Faq      @relation(fields: [faqId], references: [id], onDelete: Cascade)
+  language    Language
+  question    String
+  answer_text String
+  answer_html String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([faqId, language])
+}
+
+model Media {
+  id           String   @id @default(cuid())
+  fileName     String
+  originalName String
+  url          String
+  key          String   @unique
+  mimeType     String
+  size         Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userAvatars   User[]         @relation("UserAvatar")
+  staffProfiles StaffProfile[]
+  places        Place[]
+  categories    Category[]
+  appLanguages  AppLanguage[]
+  faqCategories FaqCategory[]
+}
+
+model StaffProfile {
+  id            String   @id @default(cuid())
+  authUserId    String   @unique
+  avatarMediaId String?
+  avatarMedia   Media?   @relation(fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Place {
+  id           String   @id @default(cuid())
+  name         String
+  imageMediaId String?
+  imageMedia   Media?   @relation(fields: [imageMediaId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Category {
+  id           String   @id @default(cuid())
+  name         String
+  imageMediaId String?
+  imageMedia   Media?   @relation(fields: [imageMediaId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AppLanguage {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  imageMediaId String?
+  imageMedia   Media?   @relation(fields: [imageMediaId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
