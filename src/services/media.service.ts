@@ -8,6 +8,8 @@ function buildFormData(file: File) {
   return formData;
 }
 
+const MEDIA_UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
+
 export const mediaService = {
   getById(id: string) {
     return apiClient
@@ -18,6 +20,7 @@ export const mediaService = {
   upload(file: File, options?: MediaUploadOptions) {
     return apiClient
       .post<ApiSuccess<Media>>("/media", buildFormData(file), {
+        timeout: MEDIA_UPLOAD_TIMEOUT_MS,
         onUploadProgress: (event) => {
           if (!options?.onProgress || !event.total) {
             return;
@@ -32,6 +35,7 @@ export const mediaService = {
   replace(id: string, file: File, options?: MediaUploadOptions) {
     return apiClient
       .put<ApiSuccess<Media>>(`/media/${id}`, buildFormData(file), {
+        timeout: MEDIA_UPLOAD_TIMEOUT_MS,
         onUploadProgress: (event) => {
           if (!options?.onProgress || !event.total) {
             return;

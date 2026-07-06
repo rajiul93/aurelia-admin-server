@@ -2,6 +2,7 @@
 
 import type { FieldPath, FieldValues } from "react-hook-form";
 import { Controller, useFormContext } from "react-hook-form";
+import { getMediaFieldError } from "@/components/form/media-field-error";
 import { ImageUpload } from "./image-upload";
 import type { Media } from "@/types/media";
 
@@ -26,7 +27,7 @@ export function FormImageUpload<T extends FieldValues>({
   uploadProgress,
   className,
 }: FormImageUploadProps<T>) {
-  const { control } = useFormContext<T>();
+  const { control, formState } = useFormContext<T>();
 
   return (
     <Controller
@@ -39,7 +40,7 @@ export function FormImageUpload<T extends FieldValues>({
           existingMedia={existingMedia}
           label={label}
           description={description}
-          error={fieldState.error?.message}
+          error={getMediaFieldError(fieldState, formState.errors, name)}
           disabled={disabled}
           isUploading={isUploading}
           uploadProgress={uploadProgress}

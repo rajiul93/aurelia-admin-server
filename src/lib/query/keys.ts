@@ -30,4 +30,87 @@ export const queryKeys = {
     detail: (id: string) =>
       [...queryKeys.faqCategories.details(), id] as const,
   },
+  tours: {
+    all: ["tours"] as const,
+    lists: () => [...queryKeys.tours.all, "list"] as const,
+    list: (params?: ListParams & { publishStatus?: string; language?: string }) =>
+      [...queryKeys.tours.lists(), params ?? {}] as const,
+    details: () => [...queryKeys.tours.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.tours.details(), id] as const,
+  },
+  tourLifecycle: {
+    all: ["tour-lifecycle"] as const,
+    details: () => [...queryKeys.tourLifecycle.all, "detail"] as const,
+    detail: (id: string) =>
+      [...queryKeys.tourLifecycle.details(), id] as const,
+  },
+  tourBundles: {
+    all: ["tour-bundles"] as const,
+    latest: (tourId: string) =>
+      [...queryKeys.tourBundles.all, "latest", tourId] as const,
+  },
+  spots: {
+    all: ["spots"] as const,
+    lists: () => [...queryKeys.spots.all, "list"] as const,
+    list: (tourId: string) => [...queryKeys.spots.lists(), tourId] as const,
+    details: () => [...queryKeys.spots.all, "detail"] as const,
+    detail: (tourId: string, spotId: string) =>
+      [...queryKeys.spots.details(), tourId, spotId] as const,
+  },
+  tourAccess: {
+    all: ["tour-access"] as const,
+    lists: () => [...queryKeys.tourAccess.all, "list"] as const,
+    list: (params?: ListParams & { status?: string; search?: string }) =>
+      [...queryKeys.tourAccess.lists(), params ?? {}] as const,
+    details: () => [...queryKeys.tourAccess.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.tourAccess.details(), id] as const,
+  },
+  tourRoute: {
+    all: ["tour-route"] as const,
+    details: () => [...queryKeys.tourRoute.all, "detail"] as const,
+    detail: (tourId: string) =>
+      [...queryKeys.tourRoute.details(), tourId] as const,
+  },
+  aiKnowledge: {
+    all: ["ai-knowledge"] as const,
+    lists: () => [...queryKeys.aiKnowledge.all, "list"] as const,
+    list: (tourId: string) => [...queryKeys.aiKnowledge.lists(), tourId] as const,
+    details: () => [...queryKeys.aiKnowledge.all, "detail"] as const,
+    detail: (tourId: string, knowledgeId: string) =>
+      [...queryKeys.aiKnowledge.details(), tourId, knowledgeId] as const,
+  },
+  appUiStrings: {
+    all: ["app-ui-strings"] as const,
+    lists: () => [...queryKeys.appUiStrings.all, "list"] as const,
+    list: (params?: ListParams & { lifecycle?: string; search?: string }) =>
+      [...queryKeys.appUiStrings.lists(), params ?? {}] as const,
+    details: () => [...queryKeys.appUiStrings.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.appUiStrings.details(), id] as const,
+  },
+  appAssets: {
+    all: ["app-assets"] as const,
+    lists: () => [...queryKeys.appAssets.all, "list"] as const,
+    list: (
+      params?: ListParams & {
+        lifecycle?: string;
+        timeOfDay?: string;
+        search?: string;
+      },
+    ) => [...queryKeys.appAssets.lists(), params ?? {}] as const,
+    details: () => [...queryKeys.appAssets.all, "detail"] as const,
+    detail: (id: string) => [...queryKeys.appAssets.details(), id] as const,
+  },
+  appReleaseConfig: {
+    all: ["app-release-config"] as const,
+  },
+  auditLogs: {
+    all: ["audit-logs"] as const,
+    lists: () => [...queryKeys.auditLogs.all, "list"] as const,
+    list: (params?: ListParams & {
+      module?: string;
+      actionType?: string;
+      entityId?: string;
+      staffAuthUserId?: string;
+    }) => [...queryKeys.auditLogs.lists(), params ?? {}] as const,
+  },
 } as const;

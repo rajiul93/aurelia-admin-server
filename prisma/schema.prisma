@@ -25,6 +25,13 @@ enum Language {
   fr
 }
 
+enum AudienceType {
+  CHILDREN
+  ADULTS
+  STUDENTS
+  PROFESSORS
+}
+
 enum SubscriptionType {
   TOUR
   DIRECT
@@ -44,8 +51,65 @@ enum PlanType {
 }
 
 enum BillingCycle {
+  WEEKLY
   ONE_MONTH
   THREE_MONTHS
+  YEARLY
+}
+
+enum PublishStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FeatureLifecycle {
+  PLANNED
+  BETA
+  ACTIVE
+  DEPRECATED
+  HIDDEN
+  REMOVED
+}
+
+enum TourAccessStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum OtpPurpose {
+  SIGN_IN
+}
+
+enum AuditActionType {
+  CREATE
+  UPDATE
+  DELETE
+  PUBLISH
+  ARCHIVE
+  ROLLBACK
+  REVOKE
+  LOGIN
+  LOGOUT
+}
+
+enum Platform {
+  ios
+  android
+}
+
+enum TourMediaType {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum TimeOfDay {
+  MORNING
+  AFTERNOON
+  EVENING
 }
 
 model User {
@@ -63,6 +127,7 @@ model User {
   avatarMedia   Media?  @relation("UserAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
 
   subscription Subscription?
+  deviceRegistrations DeviceRegistration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,6 +246,170 @@ model Media {
   categories    Category[]
   appLanguages  AppLanguage[]
   faqCategories FaqCategory[]
+  tours         Tour[]
+  spots         Spot[]
+  tourMedia     TourMedia[]
+  tourMediaThumbnails TourMedia[] @relation("TourMediaThumbnail")
+  appAssets     AppAsset[]
+}
+
+model Tour {
+  id                 String        @id @default(cuid())
+  slug               String        @unique
+  placeId            String?
+  place              Place?        @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  coverMediaId       String?
+  coverMedia         Media?        @relation(fields: [coverMediaId], references: [id], onDelete: SetNull)
+  publishStatus      PublishStatus @default(DRAFT)
+  tourBundleVersion  Int           @default(1)
+  mediaVersion       Int           @default(1)
+  aiKnowledgeVersion Int           @default(1)
+  routeVersion       Int           @default(1)
+  publishedAt        DateTime?
+  archivedAt         DateTime?
+  translations       TourTranslation[]
+  spots              Spot[]
+  route              TourRoute?
+  media              TourMedia[]
+  aiKnowledge        AiKnowledge[]
+  accessGrants       TourAccessTour[]
+  bundles            TourBundle[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}
+
+model TourBundle {
+  id                 String   @id @default(cuid())
+  tourId             String
+  tour               Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  bundleId           String   @unique
+  tourBundleVersion  Int
+  mediaVersion       Int
+  aiKnowledgeVersion Int
+  routeVersion       Int
+  languages          Json
+  manifest           Json
+  content            Json
+  searchDocuments    Json
+  checksum           String
+  signature          String
+  signatureAlgorithm String
+  fileCount          Int
+  createdAt          DateTime @default(now())
+
+  @@unique([tourId, tourBundleVersion])
+  @@index([tourId, createdAt])
+}
+
+model TourTranslation {
+  id          String       @id @default(cuid())
+  tourId      String
+  tour        Tour         @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  language    Language
+  audience    AudienceType @default(ADULTS)
+  title       String
+  description String       @default("")
+  slug        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([tourId, language, audience])
+  @@unique([language, audience, slug])
+}
+
+model TourAccess {
+  id                        String           @id @default(cuid())
+  email                     String
+  expiresAt                 DateTime
+  status                    TourAccessStatus @default(ACTIVE)
+  ticketCount               Int              @default(1)
+  allowSubscriptionFeatures Boolean          @default(false)
+  notes                     String?
+  activatedById             String?
+  tours                     TourAccessTour[]
+  deviceSessions            DeviceSession[]
+  deviceRegistrations       DeviceRegistration[]
+  otpChallenges             OtpChallenge[]
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
+
+model TourAccessTour {
+  tourAccessId String
+  tourId       String
+  tourAccess   TourAccess @relation(fields: [tourAccessId], references: [id], onDelete: Cascade)
+  tour         Tour       @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@id([tourAccessId, tourId])
+}
+
+model OtpChallenge {
+  id           String          @id @default(cuid())
+  email        String
+  codeHash     String
+  purpose      OtpPurpose      @default(SIGN_IN)
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int             @default(0)
+  tourAccessId String?
+  tourAccess   TourAccess?     @relation(fields: [tourAccessId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+
+  @@index([email, purpose])
+}
+
+model DeviceSession {
+  id               String     @id @default(cuid())
+  tourAccessId     String
+  tourAccess       TourAccess @relation(fields: [tourAccessId], references: [id], onDelete: Cascade)
+  deviceId         String
+  deviceName       String?
+  platform         Platform
+  sessionTokenHash String?    @unique
+  lastVerifiedAt   DateTime   @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([tourAccessId, deviceId])
+  @@index([deviceId])
+}
+
+model DeviceRegistration {
+  id           String          @id @default(cuid())
+  deviceId     String          @unique
+  deviceName   String?
+  platform     Platform
+  pushToken    String?
+  tourAccessId String?
+  tourAccess   TourAccess?     @relation(fields: [tourAccessId], references: [id], onDelete: SetNull)
+  userId       String?
+  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  lastActiveAt DateTime        @default(now())
+  revokedAt    DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([tourAccessId])
+  @@index([userId])
+}
+
+model AuditLog {
+  id              String          @id @default(cuid())
+  staffAuthUserId String?
+  module          String
+  actionType      AuditActionType
+  entityId        String?
+  previousValue   Json?
+  newValue          Json?
+  ipAddress       String?
+  createdAt       DateTime        @default(now())
+
+  @@index([module, createdAt])
+  @@index([staffAuthUserId])
 }
 
 model StaffProfile {
@@ -197,6 +426,7 @@ model Place {
   name         String
   imageMediaId String?
   imageMedia   Media?   @relation(fields: [imageMediaId], references: [id], onDelete: SetNull)
+  tours        Tour[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -218,4 +448,203 @@ model AppLanguage {
   imageMedia   Media?   @relation(fields: [imageMediaId], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Spot {
+  id                  String            @id @default(cuid())
+  tourId              String
+  tour                Tour              @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  latitude            Decimal?          @db.Decimal(10, 7)
+  longitude           Decimal?          @db.Decimal(10, 7)
+  floor               Int               @default(0)
+  sortOrder           Int               @default(0)
+  includedInQuickTour Boolean           @default(true)
+  thumbnailMediaId    String?
+  thumbnailMedia   Media?            @relation(fields: [thumbnailMediaId], references: [id], onDelete: SetNull)
+  translations     SpotTranslation[]
+  faqs             SpotFaq[]
+  media            TourMedia[]
+  aiKnowledge      AiKnowledge[]
+  routeEdgesFrom   RouteEdge[]       @relation("RouteEdgeFromSpot")
+  routeEdgesTo     RouteEdge[]       @relation("RouteEdgeToSpot")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([tourId, sortOrder])
+}
+
+model SpotTranslation {
+  id                   String       @id @default(cuid())
+  spotId               String
+  spot                 Spot         @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  language             Language
+  audience             AudienceType @default(ADULTS)
+  title                String
+  shortDesc            String       @default("")
+  quillJson            Json         @default("{}")
+  descriptionText      String       @default("")
+  descriptionHtml      String       @default("")
+  interestingFactsText String       @default("")
+  interestingFactsHtml String       @default("")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@unique([spotId, language, audience])
+}
+
+model SpotFaq {
+  id           String               @id @default(cuid())
+  spotId       String
+  spot         Spot                 @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  sortOrder    Int                  @default(0)
+  translations SpotFaqTranslation[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([spotId, sortOrder])
+}
+
+model SpotFaqTranslation {
+  id          String       @id @default(cuid())
+  spotFaqId   String
+  spotFaq     SpotFaq      @relation(fields: [spotFaqId], references: [id], onDelete: Cascade)
+  language    Language
+  audience    AudienceType @default(ADULTS)
+  question    String
+  answerText  String
+  answerHtml  String
+  answerJson  Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([spotFaqId, language, audience])
+}
+
+model TourRoute {
+  id        String      @id @default(cuid())
+  tourId    String      @unique
+  tour      Tour        @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  edges     RouteEdge[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model RouteEdge {
+  id             String    @id @default(cuid())
+  routeId        String
+  route          TourRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  fromSpotId     String
+  fromSpot       Spot      @relation("RouteEdgeFromSpot", fields: [fromSpotId], references: [id], onDelete: Cascade)
+  toSpotId       String
+  toSpot         Spot      @relation("RouteEdgeToSpot", fields: [toSpotId], references: [id], onDelete: Cascade)
+  sortOrder      Int       @default(0)
+  footprintGeo   Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([routeId, sortOrder])
+}
+
+model TourMedia {
+  id                  String         @id @default(cuid())
+  tourId              String
+  tour                Tour           @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  spotId              String?
+  spot                Spot?          @relation(fields: [spotId], references: [id], onDelete: SetNull)
+  mediaId             String
+  media               Media          @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  thumbnailMediaId    String?
+  thumbnailMedia      Media?         @relation("TourMediaThumbnail", fields: [thumbnailMediaId], references: [id], onDelete: SetNull)
+  type                TourMediaType
+  language            Language       @default(en)
+  audience            AudienceType   @default(ADULTS)
+  includedInQuickTour Boolean        @default(true)
+  sortOrder           Int            @default(0)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([tourId, type])
+  @@index([spotId])
+}
+
+model AiKnowledge {
+  id           String                   @id @default(cuid())
+  tourId       String
+  tour         Tour                     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  spotId       String?
+  spot         Spot?                    @relation(fields: [spotId], references: [id], onDelete: SetNull)
+  sortOrder    Int                      @default(0)
+  translations AiKnowledgeTranslation[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([tourId, sortOrder])
+  @@index([spotId])
+}
+
+model AiKnowledgeTranslation {
+  id          String       @id @default(cuid())
+  knowledgeId String
+  knowledge   AiKnowledge  @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  language    Language
+  audience    AudienceType @default(ADULTS)
+  title       String       @default("")
+  content     String
+  keywords    String       @default("")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([knowledgeId, language, audience])
+}
+
+model AppUiString {
+  id           String                   @id @default(cuid())
+  key          String                   @unique
+  lifecycle    FeatureLifecycle         @default(ACTIVE)
+  translations AppUiStringTranslation[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+}
+
+model AppUiStringTranslation {
+  id       String      @id @default(cuid())
+  stringId String
+  string   AppUiString @relation(fields: [stringId], references: [id], onDelete: Cascade)
+  language Language
+  value    String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([stringId, language])
+}
+
+model AppAsset {
+  id        String           @id @default(cuid())
+  key       String           @unique
+  mediaId   String
+  media     Media            @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  timeOfDay TimeOfDay?
+  lifecycle FeatureLifecycle @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model AppReleaseConfig {
+  id                    String        @id @default("singleton")
+  appContentVersion     Int           @default(1)
+  apiVersion            Int           @default(1)
+  schemaVersion         Int           @default(1)
+  remoteConfigVersion   Int           @default(1)
+  publishStatus         PublishStatus @default(DRAFT)
+  publishedAt           DateTime?
+  maintenanceMode       Boolean       @default(false)
+  maintenanceMessage    String?
+  enableOfflineChat     Boolean       @default(true)
+  enableGpsNavigation   Boolean       @default(false)
+  enableVoiceGuidance   Boolean       @default(true)
+  maxDownloadSizeMb       Int           @default(500)
+  maxChatHistory          Int           @default(50)
+  supportedLanguages      Json          @default("[\"en\",\"es\",\"fr\"]")
+  emergencyAnnouncement String?
+  updatedAt             DateTime      @updatedAt
 }

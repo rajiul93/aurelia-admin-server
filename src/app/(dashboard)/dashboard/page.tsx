@@ -10,7 +10,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useUsers } from "@/hooks/queries/use-users";
-import { FolderTree, MapPin, UserCircle, Users } from "lucide-react";
+import { UserCircle, Users } from "lucide-react";
 
 const dashboardCardClassName = "border border-primary ring-0";
 
@@ -39,18 +39,6 @@ function UsersStatCard() {
 
 const quickLinks = [
   {
-    title: "Place Mgmt",
-    description: "Manage tour places and locations",
-    icon: MapPin,
-    href: "/places",
-  },
-  {
-    title: "Category Mgmt",
-    description: "Organize categories and groupings",
-    icon: FolderTree,
-    href: "/categories",
-  },
-  {
     title: "My Profile",
     description: "Update your staff profile information",
     icon: UserCircle,
@@ -64,8 +52,8 @@ export default function DashboardPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground text-sm">
-          Manage users, places, categories, languages, and other mobile app
-          content from one internal staff portal.
+          Manage users and other mobile app content from one internal staff
+          portal.
         </p>
       </div>
 

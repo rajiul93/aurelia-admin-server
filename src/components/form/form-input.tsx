@@ -23,13 +23,26 @@ export function FormInput<T extends FieldValues>({
         <Input
           id={field.id}
           name={field.name}
-          value={field.value}
+          value={
+            props.type === "number"
+              ? field.value === "" || field.value === null || field.value === undefined
+                ? ""
+                : String(field.value)
+              : field.value
+          }
           onBlur={(event) => {
             field.onBlur();
             onBlur?.(event);
           }}
           onChange={(event) => {
-            field.onChange(event);
+            const nextValue =
+              props.type === "number"
+                ? event.target.value === ""
+                  ? 0
+                  : event.target.valueAsNumber
+                : event.target.value;
+
+            field.onChange(nextValue);
             onChange?.(event);
           }}
           aria-invalid={field.invalid}

@@ -15,12 +15,12 @@ type RouteAccessRule = {
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { path: "/dashboard", roles: STAFF_ROLES },
-  { path: "/places", roles: STAFF_ROLES },
-  { path: "/categories", roles: ["SUPERADMIN", "ADMIN"] },
-  { path: "/languages", roles: STAFF_ROLES },
   { path: "/profile", roles: STAFF_ROLES },
   { path: "/faqs", roles: STAFF_ROLES },
   { path: "/faqs/categories", roles: STAFF_ROLES },
+  { path: "/tours", roles: STAFF_ROLES },
+  { path: "/access", roles: ["SUPERADMIN", "ADMIN"] },
+  { path: "/app-content", roles: STAFF_ROLES },
 ];
 
 export function normalizeStaffRole(

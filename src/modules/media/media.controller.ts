@@ -1,17 +1,17 @@
 import type { NextRequest } from "next/server";
 import { ValidationError } from "@/lib/api/errors";
-import { validateImageFileFromBuffer } from "@/lib/media/validation";
+import { validateMediaFileFromBuffer } from "@/lib/media/validation";
 import { success } from "@/lib/api/response";
 import { parseParams } from "@/lib/api/validate";
 import { mediaIdParamSchema } from "./media.schema";
 import { mediaService } from "./media.service";
 
-async function parseImageUpload(req: NextRequest) {
+async function parseMediaUpload(req: NextRequest) {
   const contentType = req.headers.get("content-type") ?? "";
 
   if (!contentType.includes("multipart/form-data")) {
     throw new ValidationError(
-      "Expected a multipart/form-data image upload.",
+      "Expected a multipart/form-data media upload.",
     );
   }
 
@@ -19,12 +19,12 @@ async function parseImageUpload(req: NextRequest) {
   const fileEntry = formData.get("file");
 
   if (!(fileEntry instanceof File)) {
-    throw new ValidationError("An image file is required.");
+    throw new ValidationError("A media file is required.");
   }
 
   const buffer = Buffer.from(await fileEntry.arrayBuffer());
 
-  return validateImageFileFromBuffer(
+  return validateMediaFileFromBuffer(
     buffer,
     fileEntry.type,
     fileEntry.name,
@@ -34,7 +34,7 @@ async function parseImageUpload(req: NextRequest) {
 
 export const mediaController = {
   async upload(req: NextRequest) {
-    const file = await parseImageUpload(req);
+    const file = await parseMediaUpload(req);
     const media = await mediaService.create(file);
     return success(media, { status: 201 });
   },
@@ -45,7 +45,7 @@ export const mediaController = {
   },
 
   async replace(req: NextRequest, id: string) {
-    const file = await parseImageUpload(req);
+    const file = await parseMediaUpload(req);
     const media = await mediaService.replace(id, file);
     return success(media);
   },

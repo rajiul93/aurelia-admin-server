@@ -5,7 +5,7 @@ import { ImageIcon, Loader2, Trash2, Upload } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { IMAGE_ACCEPT } from "@/lib/media/constants";
+import { IMAGE_ACCEPT, MAX_IMAGE_SIZE_LABEL } from "@/lib/media/constants";
 import { validateClientImageFile } from "@/lib/media/validation";
 import { cn } from "@/lib/utils";
 import type { Media, MediaFieldValue } from "@/types/media";
@@ -159,7 +159,7 @@ export function ImageUpload({
           </div>
 
           <p className="text-muted-foreground text-xs">
-            JPEG, PNG, WebP, or GIF. Max 5 MB. Images upload when you save the
+            JPEG, PNG, WebP, or GIF. Max {MAX_IMAGE_SIZE_LABEL}. Images upload when you save the
             form.
           </p>
 

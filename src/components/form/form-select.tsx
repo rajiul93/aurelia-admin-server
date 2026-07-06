@@ -33,7 +33,7 @@ export function FormSelect<T extends FieldValues>({
           id={field.id}
           name={field.name}
           value={field.value}
-          onChange={field.onChange}
+          onChange={(event) => field.onChange(event.target.value)}
           onBlur={field.onBlur}
           disabled={disabled}
           aria-invalid={field.invalid}

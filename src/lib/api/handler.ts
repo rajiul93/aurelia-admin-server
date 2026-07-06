@@ -1,6 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { NextRequest } from "next/server";
-import { AppError } from "./errors";
+import { AppError, TooManyRequestsError } from "./errors";
 import { error } from "./response";
 
 type RouteContext = {
@@ -18,10 +18,19 @@ export function withErrorHandler(handler: RouteHandler) {
       return await handler(req, context);
     } catch (err) {
       if (err instanceof AppError) {
-        return error(err.code, err.message, {
+        const response = error(err.code, err.message, {
           status: err.statusCode,
           details: err.details,
         });
+
+        if (err instanceof TooManyRequestsError) {
+          response.headers.set(
+            "Retry-After",
+            String(err.retryAfterSeconds),
+          );
+        }
+
+        return response;
       }
 
       if (

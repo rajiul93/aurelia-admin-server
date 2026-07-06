@@ -1,5 +1,5 @@
 import { AppError, NotFoundError } from "@/lib/api/errors";
-import type { ValidatedImageFile } from "@/lib/media/validation";
+import type { ValidatedMediaFile } from "@/lib/media/validation";
 import { deleteFromR2, uploadToR2 } from "@/lib/storage";
 import { toMediaDto } from "./media.mapper";
 import { mediaRepository } from "./media.repository";
@@ -15,7 +15,7 @@ export const mediaService = {
     return toMediaDto(media);
   },
 
-  async create(file: ValidatedImageFile): Promise<MediaDto> {
+  async create(file: ValidatedMediaFile): Promise<MediaDto> {
     const uploaded = await uploadToR2(file);
 
     try {
@@ -41,7 +41,7 @@ export const mediaService = {
     }
   },
 
-  async replace(id: string, file: ValidatedImageFile): Promise<MediaDto> {
+  async replace(id: string, file: ValidatedMediaFile): Promise<MediaDto> {
     const existing = await mediaRepository.findById(id);
     if (!existing) {
       throw new NotFoundError("Media not found");

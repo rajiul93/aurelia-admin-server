@@ -17,9 +17,6 @@ export const AUTH_PAGES = new Set<string>([
 
 export const PROTECTED_ROUTE_PREFIXES = [
   AUTH_ROUTES.dashboard,
-  "/places",
-  "/categories",
-  "/languages",
 ] as const;
 
 export function isAuthPage(pathname: string) {

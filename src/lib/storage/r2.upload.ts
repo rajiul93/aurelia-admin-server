@@ -1,7 +1,7 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import path from "path";
-import type { ValidatedImageFile } from "@/lib/media/validation";
+import type { ValidatedMediaFile } from "@/lib/media/validation";
 import { buildPublicUrl, getR2Config } from "./r2.config";
 import { getR2Client } from "./r2.client";
 
@@ -10,6 +10,14 @@ const MIME_EXTENSION_MAP: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/wav": "wav",
+  "audio/ogg": "ogg",
+  "audio/webm": "webm",
 };
 
 function sanitizeFileName(originalName: string) {
@@ -28,7 +36,7 @@ export function generateObjectKey(originalName: string, mimeType: string) {
   return `media/${datePrefix}/${randomUUID()}-${safeName}.${extension}`;
 }
 
-export async function uploadToR2(file: ValidatedImageFile) {
+export async function uploadToR2(file: ValidatedMediaFile) {
   const config = getR2Config();
   const key = generateObjectKey(file.originalName, file.mimeType);
   const fileName = path.basename(key);
