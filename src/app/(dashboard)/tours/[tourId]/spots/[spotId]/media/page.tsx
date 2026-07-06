@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -119,9 +119,10 @@ export default function SpotMediaPage() {
 
   const spot = data?.data;
   const isSubmitting = form.formState.isSubmitting;
-  const mediaType = form.watch("type");
-  const formAudience = form.watch("audience");
-  const formLanguage = form.watch("language");
+  const [mediaType, formAudience, formLanguage] = useWatch({
+    control: form.control,
+    name: ["type", "audience", "language"],
+  });
 
   const filteredMedias = useMemo(() => {
     return (
@@ -150,7 +151,7 @@ export default function SpotMediaPage() {
       "sortOrder",
       nextSortOrder(spot.medias, formAudience, formLanguage),
     );
-  }, [form, formAudience, formLanguage, spot?.medias]);
+  }, [form, formAudience, formLanguage, spot]);
 
   async function handleSubmit(values: SpotMediaFormInput) {
     setSubmitError(null);
