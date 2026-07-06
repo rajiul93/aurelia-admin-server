@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -72,7 +72,8 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
   });
 
   const tours = toursData?.data ?? [];
-  const selectedTourIds = form.watch("tourIds");
+  const selectedTourIds =
+    useWatch({ control: form.control, name: "tourIds" }) ?? [];
   const isPending = createAccess.isPending || updateAccess.isPending;
 
   function toggleTour(tourId: string) {
