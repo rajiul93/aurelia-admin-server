@@ -1,9 +1,12 @@
 import { createHash, randomInt } from "crypto";
 import {
+  AppError,
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
 } from "@/lib/api/errors";
+import { isOtpEmailConfigured } from "@/lib/email/config";
+import { sendOtpEmail } from "@/lib/email/send-otp-email";
 import {
   createSessionToken,
   hashSessionToken,
@@ -78,8 +81,18 @@ export const mobileAuthService = {
 
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+    const expiresInMinutes = OTP_TTL_MS / 60_000;
 
-    await prisma.otpChallenge.create({
+    await prisma.otpChallenge.updateMany({
+      where: {
+        email,
+        purpose: "SIGN_IN",
+        consumedAt: null,
+      },
+      data: { consumedAt: new Date() },
+    });
+
+    const challenge = await prisma.otpChallenge.create({
       data: {
         email,
         codeHash: hashOtpCode(code),
@@ -89,15 +102,44 @@ export const mobileAuthService = {
       },
     });
 
-    // Email delivery is out of scope for Phase 2 foundation; log in non-prod.
-    if (process.env.NODE_ENV !== "production") {
+    if (isOtpEmailConfigured()) {
+      try {
+        await sendOtpEmail({ to: email, code, expiresInMinutes });
+        console.info(`[mobile-otp] email sent to ${email}`);
+      } catch (error) {
+        console.error("[mobile-otp] email delivery failed", error);
+        await prisma.otpChallenge.delete({ where: { id: challenge.id } });
+        throw new AppError(
+          503,
+          "EMAIL_DELIVERY_FAILED",
+          "Unable to send verification email. Please try again.",
+        );
+      }
+    } else if (process.env.NODE_ENV !== "production") {
       console.info(`[mobile-otp] ${email} => ${code}`);
+    } else {
+      await prisma.otpChallenge.delete({ where: { id: challenge.id } });
+      throw new AppError(
+        503,
+        "EMAIL_NOT_CONFIGURED",
+        "Unable to send verification email. Please try again later.",
+      );
     }
 
     return {
       sent: true,
       expiresInSeconds: OTP_TTL_MS / 1000,
-      ...(process.env.NODE_ENV !== "production" ? { devCode: code } : {}),
+      ...(process.env.NODE_ENV !== "production"
+        ? {
+            devCode: code,
+            ...(isOtpEmailConfigured()
+              ? {
+                  devHint:
+                    "Resend test sender only delivers to your verified Resend account email unless you verify a domain.",
+                }
+              : {}),
+          }
+        : {}),
     };
   },
 
