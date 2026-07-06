@@ -70,3 +70,28 @@ export function useDeleteTourAccess() {
     },
   });
 }
+
+export function useRevokeDeviceSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      accessId,
+      sessionId,
+    }: {
+      accessId: string;
+      sessionId: string;
+    }) => tourAccessService.revokeSession(accessId, sessionId),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.tourAccess.sessions(variables.accessId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.tourAccess.detail(variables.accessId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.tourAccess.lists(),
+      });
+    },
+  });
+}

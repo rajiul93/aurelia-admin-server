@@ -78,7 +78,7 @@ export function AccessList() {
           <h2 className="text-lg font-medium tracking-tight">Website buyer access</h2>
           <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
             Manually grant tour access after website purchase. Buyers sign in with
-            email + OTP and can use up to the configured device seats.
+            email + OTP and can use up to the configured concurrent session limit.
           </p>
         </div>
         <Button nativeButton={false} render={<Link href="/access/new" />}>
@@ -133,10 +133,11 @@ export function AccessList() {
                     <Badge variant="outline">Stored: {record.status}</Badge>
                   ) : null}
                   <Badge variant="outline">
-                    {record.ticketCount} seat{record.ticketCount === 1 ? "" : "s"}
+                    Max {record.ticketCount} session
+                    {record.ticketCount === 1 ? "" : "s"}
                   </Badge>
                   <Badge variant="outline">
-                    {record.activeDeviceCount} active device
+                    {record.activeDeviceCount} active session
                     {record.activeDeviceCount === 1 ? "" : "s"}
                   </Badge>
                 </div>

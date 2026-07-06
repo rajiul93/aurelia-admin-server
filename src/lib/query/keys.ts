@@ -64,6 +64,8 @@ export const queryKeys = {
       [...queryKeys.tourAccess.lists(), params ?? {}] as const,
     details: () => [...queryKeys.tourAccess.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.tourAccess.details(), id] as const,
+    sessions: (id: string) =>
+      [...queryKeys.tourAccess.all, "sessions", id] as const,
   },
   tourRoute: {
     all: ["tour-route"] as const,

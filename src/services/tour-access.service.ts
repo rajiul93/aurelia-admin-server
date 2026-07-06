@@ -2,6 +2,7 @@ import { apiClient } from "@/lib/axios";
 import type { ApiSuccess, ListParams } from "@/types/api";
 import type {
   CreateTourAccessPayload,
+  DeviceSession,
   TourAccess,
   TourAccessStatus,
   UpdateTourAccessPayload,
@@ -41,6 +42,20 @@ export const tourAccessService = {
   remove(id: string) {
     return apiClient
       .delete<ApiSuccess<{ deleted: boolean }>>(`/tour-access/${id}`)
+      .then((response) => response.data);
+  },
+
+  listSessions(accessId: string) {
+    return apiClient
+      .get<ApiSuccess<DeviceSession[]>>(`/tour-access/${accessId}/sessions`)
+      .then((response) => response.data);
+  },
+
+  revokeSession(accessId: string, sessionId: string) {
+    return apiClient
+      .post<
+        ApiSuccess<{ revoked: boolean; sessionId: string; deviceId: string }>
+      >(`/tour-access/${accessId}/sessions/${sessionId}/revoke`)
       .then((response) => response.data);
   },
 };

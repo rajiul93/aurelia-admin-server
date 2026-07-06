@@ -5,6 +5,7 @@ import {
   createTourAccessSchema,
   listTourAccessQuerySchema,
   tourAccessIdParamSchema,
+  tourAccessSessionParamSchema,
   updateTourAccessSchema,
 } from "./tour-access.schema";
 import { tourAccessService } from "./tour-access.service";
@@ -62,6 +63,26 @@ export const tourAccessController = {
     return success(access);
   },
 
+  async listDeviceSessions(id: string) {
+    const sessions = await tourAccessService.listDeviceSessions(id);
+    return success(sessions);
+  },
+
+  async revokeDeviceSession(
+    req: NextRequest,
+    accessId: string,
+    sessionId: string,
+    staffAuthUserId: string,
+  ) {
+    const result = await tourAccessService.revokeDeviceSession(
+      accessId,
+      sessionId,
+      getAuditContext(req, staffAuthUserId),
+    );
+
+    return success(result);
+  },
+
   async delete(req: NextRequest, id: string, staffAuthUserId: string) {
     await tourAccessService.delete(id, getAuditContext(req, staffAuthUserId));
     return success({ deleted: true });
@@ -69,5 +90,9 @@ export const tourAccessController = {
 
   parseId(params: Record<string, string | string[] | undefined>) {
     return parseParams(params, tourAccessIdParamSchema).id;
+  },
+
+  parseSessionParams(params: Record<string, string | string[] | undefined>) {
+    return parseParams(params, tourAccessSessionParamSchema);
   },
 };

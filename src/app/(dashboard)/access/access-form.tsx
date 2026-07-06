@@ -129,7 +129,8 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
           <CardTitle>Buyer details</CardTitle>
           <CardDescription>
             Website buyers sign in with this email and OTP. Access expires on the
-            selected date.
+            selected date. Max concurrent sessions limits how many devices can be
+            signed in at the same time.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -148,7 +149,7 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
           />
           <FormInput
             name="ticketCount"
-            label="Device seats"
+            label="Max concurrent sessions"
             type="number"
             min={1}
             max={20}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTourAccess } from "@/hooks/queries/use-tour-access";
 import { TourAccessForm } from "../../access-form";
+import { AccessSessionsPanel } from "../../access-sessions-panel";
 
 export default function EditAccessPage() {
   const params = useParams<{ id: string }>();
@@ -46,6 +47,7 @@ export default function EditAccessPage() {
         </p>
       </div>
       <TourAccessForm mode="edit" defaultValues={access} />
+      <AccessSessionsPanel access={access} />
     </div>
   );
 }

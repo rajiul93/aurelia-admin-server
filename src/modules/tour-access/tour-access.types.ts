@@ -6,6 +6,15 @@ export type TourAccessTourSummary = {
   title: string;
 };
 
+export type DeviceSessionDto = {
+  id: string;
+  deviceId: string;
+  deviceName: string | null;
+  platform: string;
+  lastVerifiedAt: string;
+  createdAt: string;
+};
+
 export type TourAccessDto = {
   id: string;
   email: string;

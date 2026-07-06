@@ -63,6 +63,11 @@ export const tourAccessIdParamSchema = z.object({
   id: z.string().trim().min(1),
 });
 
+export const tourAccessSessionParamSchema = z.object({
+  id: z.string().trim().min(1),
+  sessionId: z.string().trim().min(1),
+});
+
 export type CreateTourAccessInput = z.output<typeof createTourAccessSchema>;
 export type UpdateTourAccessInput = z.output<typeof updateTourAccessSchema>;
 export type ListTourAccessQuery = z.output<typeof listTourAccessQuerySchema>;

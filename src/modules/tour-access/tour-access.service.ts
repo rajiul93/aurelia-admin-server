@@ -1,5 +1,6 @@
 import { NotFoundError, ValidationError } from "@/lib/api/errors";
 import { auditService, type AuditContext } from "@/lib/audit";
+import { prisma } from "@/lib/prisma";
 import { tourRepository } from "@/modules/tour/tour.repository";
 import {
   toTourAccessDto,
@@ -11,6 +12,7 @@ import type {
   ListTourAccessQuery,
   UpdateTourAccessInput,
 } from "./tour-access.schema";
+import type { DeviceSessionDto } from "./tour-access.types";
 
 function mapAuditAccess(
   access: Awaited<ReturnType<typeof tourAccessRepository.findById>>,
@@ -108,6 +110,15 @@ export const tourAccessService = {
       await assertTourIds(input.tourIds);
     }
 
+    if (input.ticketCount !== undefined) {
+      const activeCount = existing.deviceSessions.length;
+      if (input.ticketCount < activeCount) {
+        throw new ValidationError(
+          `Max concurrent sessions cannot be lower than active sessions (${activeCount}). Revoke devices first.`,
+        );
+      }
+    }
+
     const access = await tourAccessRepository.update(id, {
       ...(input.email !== undefined
         ? { email: input.email.toLowerCase() }
@@ -148,6 +159,86 @@ export const tourAccessService = {
 
   async revoke(id: string, audit?: AuditContext) {
     return this.update(id, { status: "REVOKED" }, audit);
+  },
+
+  async listDeviceSessions(accessId: string): Promise<DeviceSessionDto[]> {
+    const access = await tourAccessRepository.findById(accessId);
+    if (!access) {
+      throw new NotFoundError("Tour access record not found");
+    }
+
+    const sessions = await prisma.deviceSession.findMany({
+      where: { tourAccessId: accessId, revokedAt: null },
+      orderBy: { lastVerifiedAt: "desc" },
+    });
+
+    return sessions.map((session) => ({
+      id: session.id,
+      deviceId: session.deviceId,
+      deviceName: session.deviceName,
+      platform: session.platform,
+      lastVerifiedAt: session.lastVerifiedAt.toISOString(),
+      createdAt: session.createdAt.toISOString(),
+    }));
+  },
+
+  async revokeDeviceSession(
+    accessId: string,
+    sessionId: string,
+    audit?: AuditContext,
+  ) {
+    const access = await tourAccessRepository.findById(accessId);
+    if (!access) {
+      throw new NotFoundError("Tour access record not found");
+    }
+
+    const session = await prisma.deviceSession.findFirst({
+      where: {
+        id: sessionId,
+        tourAccessId: accessId,
+        revokedAt: null,
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundError("Active device session not found");
+    }
+
+    await prisma.deviceSession.update({
+      where: { id: session.id },
+      data: {
+        revokedAt: new Date(),
+        sessionTokenHash: null,
+      },
+    });
+
+    await prisma.deviceRegistration.updateMany({
+      where: {
+        deviceId: session.deviceId,
+        tourAccessId: accessId,
+      },
+      data: { revokedAt: new Date() },
+    });
+
+    await auditService.log({
+      module: "tour-access",
+      actionType: "REVOKE",
+      entityId: accessId,
+      previousValue: {
+        sessionId: session.id,
+        deviceId: session.deviceId,
+        deviceName: session.deviceName,
+        platform: session.platform,
+      },
+      newValue: { revoked: true },
+      context: audit,
+    });
+
+    return {
+      revoked: true,
+      sessionId: session.id,
+      deviceId: session.deviceId,
+    };
   },
 
   async delete(id: string, audit?: AuditContext) {

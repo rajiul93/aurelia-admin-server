@@ -16,3 +16,12 @@ export type CreateTourAccessPayload = {
 export type UpdateTourAccessPayload = Partial<CreateTourAccessPayload> & {
   status?: "ACTIVE" | "REVOKED";
 };
+
+export type DeviceSession = {
+  id: string;
+  deviceId: string;
+  deviceName: string | null;
+  platform: string;
+  lastVerifiedAt: string;
+  createdAt: string;
+};
