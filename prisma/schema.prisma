@@ -93,6 +93,20 @@ enum AuditActionType {
   REVOKE
   LOGIN
   LOGOUT
+  PAYMENT
+}
+
+enum PurchaseStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum TourAccessSource {
+  ADMIN
+  SELF_SERVICE
 }
 
 enum Platform {
@@ -229,6 +243,41 @@ model FaqTranslation {
   @@unique([faqId, language])
 }
 
+enum KnowledgeCategory {
+  KNOWLEDGE
+  INFO_PAGE
+  LEGAL
+}
+
+model KnowledgeArticle {
+  id                 String                        @id @default(cuid())
+  key                String                        @unique
+  category           KnowledgeCategory
+  includeInAssistant Boolean                       @default(true)
+  lifecycle          FeatureLifecycle              @default(ACTIVE)
+  sortOrder          Int                           @default(0)
+  icon               String?
+  translations       KnowledgeArticleTranslation[]
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
+
+  @@index([category])
+}
+
+model KnowledgeArticleTranslation {
+  id        String           @id @default(cuid())
+  articleId String
+  article   KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  language  Language
+  title     String
+  bodyHtml  String           @default("")
+  bodyText  String           @default("")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([articleId, language])
+}
+
 model Media {
   id           String   @id @default(cuid())
   fileName     String
@@ -274,6 +323,7 @@ model Tour {
   aiKnowledge        AiKnowledge[]
   accessGrants       TourAccessTour[]
   bundles            TourBundle[]
+  subscriptionPurchases SubscriptionPurchaseTour[]
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 }
@@ -324,12 +374,14 @@ model TourAccess {
   status                    TourAccessStatus @default(ACTIVE)
   ticketCount               Int              @default(1)
   allowSubscriptionFeatures Boolean          @default(false)
+  source                    TourAccessSource @default(ADMIN)
   notes                     String?
   activatedById             String?
   tours                     TourAccessTour[]
   deviceSessions            DeviceSession[]
   deviceRegistrations       DeviceRegistration[]
   otpChallenges             OtpChallenge[]
+  purchases                 SubscriptionPurchase[]
   createdAt                 DateTime         @default(now())
   updatedAt                 DateTime         @updatedAt
 
@@ -344,6 +396,70 @@ model TourAccessTour {
   tour         Tour       @relation(fields: [tourId], references: [id], onDelete: Cascade)
 
   @@id([tourAccessId, tourId])
+}
+
+model SubscriptionPlan {
+  id             String                 @id @default(cuid())
+  name           String
+  durationInDays Int
+  basePrice      Decimal                @db.Decimal(10, 2)
+  isActive       Boolean                @default(true)
+  sortOrder      Int                    @default(0)
+  purchases      SubscriptionPurchase[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+}
+
+model DevicePricingTier {
+  id              String   @id @default(cuid())
+  deviceCount     Int      @unique
+  additionalPrice Decimal  @db.Decimal(10, 2)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SubscriptionPricingSettings {
+  id                         String   @id @default("singleton")
+  currency                   String   @default("EUR")
+  multiDeviceDiscountEnabled Boolean  @default(true)
+  multiDeviceDiscountPercent Decimal  @db.Decimal(5, 2) @default(10)
+  maxDevicesPerPurchase      Int      @default(10)
+  updatedAt                  DateTime @updatedAt
+}
+
+model SubscriptionPurchase {
+  id                        String                     @id @default(cuid())
+  email                     String
+  planId                    String
+  plan                      SubscriptionPlan           @relation(fields: [planId], references: [id], onDelete: Restrict)
+  deviceCount               Int
+  basePriceAtPurchase       Decimal                    @db.Decimal(10, 2)
+  deviceSurchargeAtPurchase Decimal                    @db.Decimal(10, 2)
+  discountPercentAtPurchase Decimal                    @db.Decimal(5, 2)
+  totalAmount               Decimal                    @db.Decimal(10, 2)
+  currency                  String
+  status                    PurchaseStatus             @default(PENDING)
+  stripePaymentIntentId     String?                    @unique
+  tourAccessId              String?
+  tourAccess                TourAccess?                @relation(fields: [tourAccessId], references: [id], onDelete: SetNull)
+  tours                     SubscriptionPurchaseTour[]
+  failureReason             String?
+  paidAt                    DateTime?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
+
+model SubscriptionPurchaseTour {
+  purchaseId String
+  tourId     String
+  purchase   SubscriptionPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  tour       Tour                 @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@id([purchaseId, tourId])
 }
 
 model OtpChallenge {
@@ -632,6 +748,7 @@ model AppAsset {
 model AppReleaseConfig {
   id                    String        @id @default("singleton")
   appContentVersion     Int           @default(1)
+  knowledgeVersion      Int           @default(1)
   apiVersion            Int           @default(1)
   schemaVersion         Int           @default(1)
   remoteConfigVersion   Int           @default(1)

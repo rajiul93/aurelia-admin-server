@@ -1,12 +1,16 @@
 import type { StaffRole } from "@/types/auth";
 import type { LucideIcon } from "lucide-react";
 import {
+  BookOpen,
   CircleHelp,
+  CreditCard,
   History,
   ImageIcon,
   KeyRound,
   LayoutDashboard,
   MapPinned,
+  Receipt,
+  Settings,
   Smartphone,
   Tags,
   Type,
@@ -50,6 +54,42 @@ export const mainNavItems: NavItem[] = [
     icon: History,
     description: "Staff action history",
     roles: ["SUPERADMIN", "ADMIN"],
+  },
+  {
+    title: "Subscriptions",
+    icon: CreditCard,
+    description: "Self-service plan pricing and purchases",
+    roles: ["SUPERADMIN", "ADMIN"],
+    children: [
+      {
+        title: "Plans",
+        href: "/subscriptions/plans",
+        icon: CreditCard,
+        description: "Duration and base price per plan",
+        roles: ["SUPERADMIN", "ADMIN"],
+      },
+      {
+        title: "Device Pricing",
+        href: "/subscriptions/device-pricing",
+        icon: Smartphone,
+        description: "Extra cost per additional device",
+        roles: ["SUPERADMIN", "ADMIN"],
+      },
+      {
+        title: "Settings",
+        href: "/subscriptions/settings",
+        icon: Settings,
+        description: "Multi-device discount and device cap",
+        roles: ["SUPERADMIN", "ADMIN"],
+      },
+      {
+        title: "Purchases",
+        href: "/subscriptions/purchases",
+        icon: Receipt,
+        description: "Self-service purchase history",
+        roles: ["SUPERADMIN", "ADMIN"],
+      },
+    ],
   },
   {
     title: "App Content",
@@ -108,6 +148,13 @@ export const mainNavItems: NavItem[] = [
         roles: ["SUPERADMIN", "ADMIN", "MANAGER"],
       },
     ],
+  },
+  {
+    title: "Knowledge Base",
+    href: "/knowledge",
+    icon: BookOpen,
+    description: "Assistant knowledge and app info/legal pages",
+    roles: ["SUPERADMIN", "ADMIN", "MANAGER"],
   },
 ];
 

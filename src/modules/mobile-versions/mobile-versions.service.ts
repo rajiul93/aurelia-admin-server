@@ -10,6 +10,7 @@ export const mobileVersionsService = {
       apiVersion: config.apiVersion,
       schemaVersion: config.schemaVersion,
       appContentVersion: config.appContentVersion,
+      knowledgeVersion: config.knowledgeVersion,
       remoteConfigVersion: config.remoteConfigVersion,
     };
   },

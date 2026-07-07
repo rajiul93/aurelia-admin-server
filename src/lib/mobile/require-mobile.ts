@@ -22,9 +22,7 @@ export async function requireMobileRequest(req: NextRequest) {
   return apiVersion;
 }
 
-export async function requireMobileSession(
-  req: NextRequest,
-): Promise<MobileSessionContext> {
+async function resolveSessionFromRequest(req: NextRequest) {
   await requireMobileRequest(req);
 
   const authorization = req.headers.get("authorization")?.trim() ?? "";
@@ -47,20 +45,18 @@ export async function requireMobileSession(
     throw new UnauthorizedError("Invalid or revoked device session");
   }
 
-  const access = session.tourAccess;
-  const expired =
-    access.status === "REVOKED" ||
-    access.status === "EXPIRED" ||
-    access.expiresAt.getTime() < Date.now();
-
-  if (expired) {
-    throw new UnauthorizedError("Tour access is no longer active");
-  }
-
   await prisma.deviceSession.update({
     where: { id: session.id },
     data: { lastVerifiedAt: new Date() },
   });
+
+  return session;
+}
+
+function toSessionContext(
+  session: Awaited<ReturnType<typeof resolveSessionFromRequest>>,
+): MobileSessionContext {
+  const access = session.tourAccess;
 
   return {
     sessionId: session.id,
@@ -72,4 +68,35 @@ export async function requireMobileSession(
     expiresAt: access.expiresAt,
     accessStatus: access.status,
   };
+}
+
+export async function requireMobileSession(
+  req: NextRequest,
+): Promise<MobileSessionContext> {
+  const session = await resolveSessionFromRequest(req);
+  const access = session.tourAccess;
+
+  const expired =
+    access.status === "REVOKED" ||
+    access.status === "EXPIRED" ||
+    access.expiresAt.getTime() < Date.now();
+
+  if (expired) {
+    throw new UnauthorizedError("Tour access is no longer active");
+  }
+
+  return toSessionContext(session);
+}
+
+/**
+ * Same device-session lookup as requireMobileSession, but does not reject
+ * expired/revoked access — used by routes that must stay reachable for a
+ * signed-in user whose subscription has lapsed or never started (e.g.
+ * entitlements status, subscription checkout).
+ */
+export async function requireMobileIdentity(
+  req: NextRequest,
+): Promise<MobileSessionContext> {
+  const session = await resolveSessionFromRequest(req);
+  return toSessionContext(session);
 }

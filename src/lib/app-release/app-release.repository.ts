@@ -32,6 +32,14 @@ export const appReleaseRepository = {
     });
   },
 
+  async bumpKnowledgeVersion() {
+    await prisma.appReleaseConfig.upsert({
+      where: { id: "singleton" },
+      create: { id: "singleton", knowledgeVersion: 2 },
+      update: { knowledgeVersion: { increment: 1 } },
+    });
+  },
+
   async updateConfig(input: UpdateAppReleaseConfigInput) {
     const bumpsRemoteConfig = REMOTE_CONFIG_FIELDS.some(
       (field) => input[field] !== undefined,

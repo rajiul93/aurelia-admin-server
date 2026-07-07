@@ -105,6 +105,38 @@ export const queryKeys = {
   appReleaseConfig: {
     all: ["app-release-config"] as const,
   },
+  knowledgeArticles: {
+    all: ["knowledge-articles"] as const,
+    lists: () => [...queryKeys.knowledgeArticles.all, "list"] as const,
+    list: (params?: ListParams & { category?: string; language?: string }) =>
+      [...queryKeys.knowledgeArticles.lists(), params ?? {}] as const,
+    details: () => [...queryKeys.knowledgeArticles.all, "detail"] as const,
+    detail: (id: string) =>
+      [...queryKeys.knowledgeArticles.details(), id] as const,
+  },
+  subscriptionPlans: {
+    all: ["subscription-plans"] as const,
+    lists: () => [...queryKeys.subscriptionPlans.all, "list"] as const,
+    details: () => [...queryKeys.subscriptionPlans.all, "detail"] as const,
+    detail: (id: string) =>
+      [...queryKeys.subscriptionPlans.details(), id] as const,
+  },
+  devicePricingTiers: {
+    all: ["device-pricing-tiers"] as const,
+    lists: () => [...queryKeys.devicePricingTiers.all, "list"] as const,
+    details: () => [...queryKeys.devicePricingTiers.all, "detail"] as const,
+    detail: (id: string) =>
+      [...queryKeys.devicePricingTiers.details(), id] as const,
+  },
+  subscriptionPricingSettings: {
+    all: ["subscription-pricing-settings"] as const,
+  },
+  subscriptionPurchases: {
+    all: ["subscription-purchases"] as const,
+    lists: () => [...queryKeys.subscriptionPurchases.all, "list"] as const,
+    list: (params?: ListParams & { status?: string; email?: string }) =>
+      [...queryKeys.subscriptionPurchases.lists(), params ?? {}] as const,
+  },
   auditLogs: {
     all: ["audit-logs"] as const,
     lists: () => [...queryKeys.auditLogs.all, "list"] as const,

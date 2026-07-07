@@ -3,6 +3,7 @@ import {
   AppError,
   ForbiddenError,
   NotFoundError,
+  TooManyRequestsError,
   UnauthorizedError,
 } from "@/lib/api/errors";
 import { isOtpEmailConfigured } from "@/lib/email/config";
@@ -34,50 +35,80 @@ function generateOtpCode() {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
-async function findActiveAccessByEmail(email: string) {
-  const now = new Date();
-
-  return prisma.tourAccess.findFirst({
-    where: {
-      email,
-      status: "ACTIVE",
-      expiresAt: { gt: now },
-    },
+const ACCESS_INCLUDE = {
+  tours: {
     include: {
-      tours: {
-        include: {
-          tour: {
-            select: {
-              id: true,
-              slug: true,
-              publishStatus: true,
-            },
-          },
+      tour: {
+        select: {
+          id: true,
+          slug: true,
+          publishStatus: true,
         },
       },
-      deviceSessions: {
-        where: { revokedAt: null },
-      },
     },
+  },
+  deviceSessions: {
+    where: { revokedAt: null },
+  },
+} as const;
+
+async function findAccessByEmail(email: string) {
+  return prisma.tourAccess.findFirst({
+    where: { email },
+    include: ACCESS_INCLUDE,
     orderBy: { expiresAt: "desc" },
   });
+}
+
+/**
+ * A brand-new email has no admin-granted TourAccess yet. Rather than run a
+ * separate signup/identity system, we auto-provision a minimal "shell"
+ * access record (already-expired, one seat) so the email can sign in,
+ * land on the entitlements-inactive lock screen, and self-serve a
+ * subscription purchase — which then upgrades this same row.
+ */
+async function provisionShellAccess(email: string) {
+  return prisma.tourAccess.create({
+    data: {
+      email,
+      expiresAt: new Date(0),
+      status: "ACTIVE",
+      ticketCount: 1,
+      allowSubscriptionFeatures: false,
+      source: "SELF_SERVICE",
+    },
+    include: ACCESS_INCLUDE,
+  });
+}
+
+const OTP_REQUEST_COOLDOWN_MS = 45 * 1000;
+
+async function assertNotThrottled(email: string) {
+  const recent = await prisma.otpChallenge.findFirst({
+    where: {
+      email,
+      purpose: "SIGN_IN",
+      consumedAt: null,
+      createdAt: { gt: new Date(Date.now() - OTP_REQUEST_COOLDOWN_MS) },
+    },
+  });
+
+  if (recent) {
+    throw new TooManyRequestsError(
+      "Please wait before requesting another code.",
+      Math.ceil(OTP_REQUEST_COOLDOWN_MS / 1000),
+    );
+  }
 }
 
 export const mobileAuthService = {
   async requestOtp(input: OtpRequestInput) {
     const email = normalizeEmail(input.email);
-    const access = await findActiveAccessByEmail(email);
 
-    if (!access) {
-      // Do not reveal whether the email exists.
-      return {
-        sent: true,
-        expiresInSeconds: OTP_TTL_MS / 1000,
-        ...(process.env.NODE_ENV !== "production"
-          ? { devHint: "No active access for this email" }
-          : {}),
-      };
-    }
+    await assertNotThrottled(email);
+
+    const access =
+      (await findAccessByEmail(email)) ?? (await provisionShellAccess(email));
 
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_TTL_MS);
@@ -145,7 +176,7 @@ export const mobileAuthService = {
 
   async verifyOtp(input: OtpVerifyInput) {
     const email = normalizeEmail(input.email);
-    const access = await findActiveAccessByEmail(email);
+    const access = await findAccessByEmail(email);
 
     if (!access) {
       throw new UnauthorizedError("Invalid email or OTP");
