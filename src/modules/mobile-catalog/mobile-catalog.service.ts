@@ -1,3 +1,4 @@
+import { DEFAULT_AUDIENCE } from "@/lib/i18n/audiences";
 import { DEFAULT_LANGUAGE, type AppLanguage } from "@/lib/i18n/languages";
 import { prisma } from "@/lib/prisma";
 
@@ -13,7 +14,20 @@ export const mobileCatalogService = {
     });
 
     return tours.map((tour) => {
+      // A tour has one translation per (language, audience). The catalog card
+      // shows the default ADULTS title, preferring the requested language, then
+      // falling back to the default language, then any available translation.
       const preferred =
+        tour.translations.find(
+          (entry) =>
+            entry.language === language &&
+            entry.audience === DEFAULT_AUDIENCE,
+        ) ??
+        tour.translations.find(
+          (entry) =>
+            entry.language === DEFAULT_LANGUAGE &&
+            entry.audience === DEFAULT_AUDIENCE,
+        ) ??
         tour.translations.find((entry) => entry.language === language) ??
         tour.translations.find((entry) => entry.language === DEFAULT_LANGUAGE) ??
         tour.translations[0];
