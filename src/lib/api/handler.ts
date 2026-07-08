@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { NextRequest } from "next/server";
+import { isTransientDbError } from "@/lib/prisma-retry";
 import { AppError, TooManyRequestsError } from "./errors";
 import { error } from "./response";
 
@@ -56,6 +57,19 @@ export function withErrorHandler(handler: RouteHandler) {
         return error(
           "DATABASE_UNAVAILABLE",
           "Database connection failed. Check DATABASE_URL and restart the dev server.",
+          { status: 503 },
+        );
+      }
+
+      // Transient serverless-Postgres blips (Neon cold start / control-plane
+      // failure / dropped connection) that survived retries. Surface a
+      // retryable 503 rather than a misleading 500 so clients back off and
+      // retry instead of treating it as a hard failure.
+      if (isTransientDbError(err)) {
+        console.error("Transient database error:", err);
+        return error(
+          "DATABASE_UNAVAILABLE",
+          "The database is temporarily unavailable. Please try again in a moment.",
           { status: 503 },
         );
       }

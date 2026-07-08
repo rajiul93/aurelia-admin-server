@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/prisma-retry";
 import type { UpdateAppReleaseConfigInput } from "@/schemas/app-release-config.schema";
 
 const REMOTE_CONFIG_FIELDS = [
@@ -17,11 +18,17 @@ const REMOTE_CONFIG_FIELDS = [
 
 export const appReleaseRepository = {
   getConfig() {
-    return prisma.appReleaseConfig.upsert({
-      where: { id: "singleton" },
-      create: { id: "singleton" },
-      update: {},
-    });
+    // Runs on every mobile request (via requireCompatibleApiVersion). Retry
+    // transient Neon cold-start failures so a suspended-compute wake-up doesn't
+    // surface as a 500. The upsert is keyed by a fixed id, so it is idempotent
+    // and safe to retry.
+    return withDbRetry(() =>
+      prisma.appReleaseConfig.upsert({
+        where: { id: "singleton" },
+        create: { id: "singleton" },
+        update: {},
+      }),
+    );
   },
 
   async bumpAppContentVersion() {
