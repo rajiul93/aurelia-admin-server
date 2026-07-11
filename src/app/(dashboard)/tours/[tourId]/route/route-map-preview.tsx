@@ -73,7 +73,7 @@ export function RouteMapPreview({ spots, edges }: RouteMapPreviewProps) {
         role="img"
         aria-label="Route map preview"
       >
-        <rect width={width} height={height} fill="#1c1917" />
+        <rect width={width} height={height} fill="#541a1a" />
 
         {edges.map((edge) => {
           const polyline =
@@ -120,7 +120,7 @@ export function RouteMapPreview({ spots, edges }: RouteMapPreviewProps) {
               key={edge.id}
               d={path}
               fill="none"
-              stroke="#e1a566"
+              stroke="#dcc3aa"
               strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -149,15 +149,15 @@ export function RouteMapPreview({ spots, edges }: RouteMapPreviewProps) {
                 cx={projected.x}
                 cy={projected.y}
                 r={10}
-                fill="#1c1917"
-                stroke="#e1a566"
+                fill="#810b38"
+                stroke="#dcc3aa"
                 strokeWidth={2}
               />
               <text
                 x={projected.x}
                 y={projected.y + 4}
                 textAnchor="middle"
-                fill="#fef3c7"
+                fill="#f1e2d1"
                 fontSize="11"
                 fontWeight="600"
               >

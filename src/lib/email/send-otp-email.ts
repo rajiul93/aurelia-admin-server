@@ -44,11 +44,11 @@ export async function sendOtpEmail({
     ].join("\n"),
     html: `
       <p>Use this code to sign in to the Aurelia app:</p>
-      <p style="font-size: 28px; font-weight: 700; letter-spacing: 0.2em; margin: 24px 0;">
+      <p style="font-size: 28px; font-weight: 700; letter-spacing: 0.2em; margin: 24px 0; color: #810b38;">
         ${code}
       </p>
       <p>This code expires in ${expiresInMinutes} minutes.</p>
-      <p style="color: #57534e;">If you did not request this code, you can ignore this email.</p>
+      <p style="color: #541a1a;">If you did not request this code, you can ignore this email.</p>
     `.trim(),
   });
 

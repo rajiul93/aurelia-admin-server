@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteTour } from "@/hooks/mutations/use-tour-mutations";
 import { useTours } from "@/hooks/queries/use-tours";
 import { APP_LANGUAGES, LANGUAGE_LABELS } from "@/lib/i18n/languages";
-import { getPreferredTranslation } from "@/lib/i18n/translations";
+import { getPreferredAudienceTranslation } from "@/lib/i18n/translations";
 import type { PublishStatus } from "@/types/tour";
 
 const publishStatusLabels: Record<PublishStatus, string> = {
@@ -114,7 +114,9 @@ export function TourList() {
       {!isLoading && !isError && tours.length > 0 ? (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {tours.map((tour) => {
-            const preferred = getPreferredTranslation(tour.translations);
+            const preferred = getPreferredAudienceTranslation(
+              tour.translations,
+            );
 
             return (
               <Card
@@ -122,7 +124,7 @@ export function TourList() {
                 className="flex h-full flex-col overflow-hidden border border-border/80 shadow-sm"
               >
                 {tour.coverMedia?.url ? (
-                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+                  <div className="relative -mt-(--card-spacing) aspect-video w-full overflow-hidden bg-muted">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={tour.coverMedia.url}
@@ -149,7 +151,7 @@ export function TourList() {
                     ))}
                   </div>
                   <CardTitle className="text-base leading-snug font-semibold tracking-tight">
-                    {preferred?.title ?? tour.slug}
+                    {preferred?.title || tour.slug}
                   </CardTitle>
                   <p className="text-muted-foreground line-clamp-3 text-sm">
                     {preferred?.description || "No description yet."}
