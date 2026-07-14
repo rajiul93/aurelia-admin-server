@@ -23,7 +23,8 @@ export type RouteEdgeDto = {
 
 export type TourRouteDto = {
   id: string | null;
-  tourId: string;
+  floorId: string;
+  tourId: string | null;  // Deprecated: use floor.tourId instead
   edges: RouteEdgeDto[];
   createdAt: string | null;
   updatedAt: string | null;

@@ -29,30 +29,32 @@ export const spotController = {
     return success(spots);
   },
 
-  async create(req: NextRequest, tourId: string, staffAuthUserId: string) {
+  async create(req: NextRequest, _tourId: string, floorId: string, staffAuthUserId: string) {
     const body = await parseBody(req, createSpotSchema);
     const spot = await spotService.create(
-      tourId,
+      floorId,
       body,
       getAuditContext(req, staffAuthUserId),
     );
     return success(spot, { status: 201 });
   },
 
-  async getById(_req: NextRequest, tourId: string, spotId: string) {
-    const spot = await spotService.getById(tourId, spotId);
+  async getById(_req: NextRequest, tourId: string, floorId: string, spotId: string) {
+    const spot = await spotService.getById(tourId, floorId, spotId);
     return success(spot);
   },
 
   async update(
     req: NextRequest,
     tourId: string,
+    floorId: string,
     spotId: string,
     staffAuthUserId: string,
   ) {
     const body = await parseBody(req, updateSpotSchema);
     const spot = await spotService.update(
       tourId,
+      floorId,
       spotId,
       body,
       getAuditContext(req, staffAuthUserId),
@@ -63,11 +65,13 @@ export const spotController = {
   async delete(
     req: NextRequest,
     tourId: string,
+    floorId: string,
     spotId: string,
     staffAuthUserId: string,
   ) {
     await spotService.delete(
       tourId,
+      floorId,
       spotId,
       getAuditContext(req, staffAuthUserId),
     );
@@ -77,12 +81,14 @@ export const spotController = {
   async createMedia(
     req: NextRequest,
     tourId: string,
+    floorId: string,
     spotId: string,
     staffAuthUserId: string,
   ) {
     const body = await parseBody(req, createSpotMediaSchema);
     const media = await spotService.createMedia(
       tourId,
+      floorId,
       spotId,
       body,
       getAuditContext(req, staffAuthUserId),
@@ -93,12 +99,14 @@ export const spotController = {
   async deleteMedia(
     req: NextRequest,
     tourId: string,
+    floorId: string,
     spotId: string,
     mediaId: string,
     staffAuthUserId: string,
   ) {
     await spotService.deleteMedia(
       tourId,
+      floorId,
       spotId,
       mediaId,
       getAuditContext(req, staffAuthUserId),
@@ -109,12 +117,14 @@ export const spotController = {
   async createFaq(
     req: NextRequest,
     tourId: string,
+    floorId: string,
     spotId: string,
     staffAuthUserId: string,
   ) {
     const body = await parseBody(req, createSpotFaqSchema);
     const faq = await spotService.createFaq(
       tourId,
+      floorId,
       spotId,
       body,
       getAuditContext(req, staffAuthUserId),
@@ -125,6 +135,7 @@ export const spotController = {
   async updateFaq(
     req: NextRequest,
     tourId: string,
+    floorId: string,
     spotId: string,
     faqId: string,
     staffAuthUserId: string,
@@ -132,6 +143,7 @@ export const spotController = {
     const body = await parseBody(req, updateSpotFaqSchema);
     const faq = await spotService.updateFaq(
       tourId,
+      floorId,
       spotId,
       faqId,
       body,
@@ -143,12 +155,14 @@ export const spotController = {
   async deleteFaq(
     req: NextRequest,
     tourId: string,
+    floorId: string,
     spotId: string,
     faqId: string,
     staffAuthUserId: string,
   ) {
     await spotService.deleteFaq(
       tourId,
+      floorId,
       spotId,
       faqId,
       getAuditContext(req, staffAuthUserId),

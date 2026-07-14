@@ -4,13 +4,6 @@ import { tourIncludeRelations } from "@/modules/tour/tour.repository";
 
 export const tourBundleInclude = {
   ...tourIncludeRelations,
-  route: {
-    include: {
-      edges: {
-        orderBy: { sortOrder: "asc" as const },
-      },
-    },
-  },
   aiKnowledge: {
     orderBy: { sortOrder: "asc" as const },
     include: {

@@ -19,25 +19,65 @@ export const spotIncludeRelations = {
 } satisfies Prisma.SpotInclude;
 
 export const spotRepository = {
-  findByTourId(tourId: string) {
+  // New: find by floor (not tour)
+  async findByFloorId(floorId: string) {
     return prisma.spot.findMany({
-      where: { tourId },
+      where: { floorId },
       include: spotIncludeRelations,
       orderBy: { sortOrder: "asc" },
     });
   },
 
-  findById(tourId: string, spotId: string) {
-    return prisma.spot.findFirst({
-      where: { id: spotId, tourId },
+  // Deprecated: find by tour ID (aggregates across all floors in tour)
+  async findByTourId(tourId: string) {
+    return prisma.spot.findMany({
+      where: {
+        floor: { tourId },
+      },
+      include: spotIncludeRelations,
+      orderBy: { sortOrder: "asc" },
+    });
+  },
+
+  // New: validate floor → tour chain
+  async findById(tourId: string, floorId: string, spotId: string) {
+    const spot = await prisma.spot.findUnique({
+      where: { id: spotId },
+      include: { floor: { include: { tour: true } } },
+    });
+
+    if (!spot) return null;
+    if (spot.floorId !== floorId) return null;
+    if (spot.floor.tourId !== tourId) return null;
+
+    return prisma.spot.findUnique({
+      where: { id: spotId },
       include: spotIncludeRelations,
     });
   },
 
-  create(tourId: string, data: Prisma.SpotCreateWithoutTourInput) {
+  // Alternative: find by tour + spotId (without floor)
+  async findByTourAndId(tourId: string, spotId: string) {
+    const spot = await prisma.spot.findUnique({
+      where: { id: spotId },
+      include: { floor: { include: { tour: true } } },
+    });
+
+    if (!spot || spot.floor.tourId !== tourId) {
+      return null;
+    }
+
+    return prisma.spot.findUnique({
+      where: { id: spotId },
+      include: spotIncludeRelations,
+    });
+  },
+
+  // New: create with floor FK
+  async create(floorId: string, data: Omit<Prisma.SpotCreateInput, "floor">) {
     return prisma.spot.create({
       data: {
-        tour: { connect: { id: tourId } },
+        floor: { connect: { id: floorId } },
         ...data,
       },
       include: spotIncludeRelations,
@@ -56,8 +96,9 @@ export const spotRepository = {
     return prisma.spot.delete({ where: { id: spotId } });
   },
 
-  createMedia(
+  async createMedia(
     tourId: string,
+    floorId: string,
     spotId: string,
     data: {
       type: Prisma.TourMediaCreateInput["type"];
@@ -69,6 +110,18 @@ export const spotRepository = {
       includedInQuickTour?: boolean;
     },
   ) {
+    // Validate chain: spot belongs to floor, floor belongs to tour
+    const spot = await prisma.spot.findUnique({
+      where: { id: spotId },
+      include: { floor: true },
+    });
+    if (!spot || spot.floorId !== floorId) {
+      throw new Error("Spot not found in this floor");
+    }
+    if (spot.floor.tourId !== tourId) {
+      throw new Error("Floor does not belong to this tour");
+    }
+
     return prisma.$transaction(async (tx) => {
       const media = await tx.tourMedia.create({
         data: {

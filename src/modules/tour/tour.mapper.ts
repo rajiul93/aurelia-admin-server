@@ -7,13 +7,14 @@ import type {
   Tour,
   TourMedia,
   TourTranslation,
+  Floor,
+  FloorTranslation,
 } from "@/generated/prisma/client";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import type { AudienceType } from "@/lib/i18n/audiences";
 import type { Media as MediaDto } from "@/types/media";
 import type { QuillContentJson } from "./tour.quill";
 import type {
-  SpotDto,
   SpotFaqDto,
   SpotMediaDto,
   TourDto,
@@ -22,11 +23,16 @@ import type {
 type TourWithRelations = Tour & {
   translations: TourTranslation[];
   coverMedia: Media | null;
-  spots: Array<
-    Spot & {
-      translations: SpotTranslation[];
-      faqs: Array<SpotFaq & { translations: SpotFaqTranslation[] }>;
-      media: Array<TourMedia & { media: Media; thumbnailMedia: Media | null }>;
+  floors: Array<
+    Floor & {
+      translations: FloorTranslation[];
+      spots: Array<
+        Spot & {
+          translations: SpotTranslation[];
+          faqs: Array<SpotFaq & { translations: SpotFaqTranslation[] }>;
+          media: Array<TourMedia & { media: Media; thumbnailMedia: Media | null }>;
+        }
+      >;
     }
   >;
 };
@@ -110,13 +116,14 @@ function mapSpot(
     faqs: Array<SpotFaq & { translations: SpotFaqTranslation[] }>;
     media: Array<TourMedia & { media: Media; thumbnailMedia: Media | null }>;
   },
-): SpotDto {
+  floorNo: number,
+) {
   return {
     id: spot.id,
     sortOrder: spot.sortOrder,
     latitude: spot.latitude ? Number(spot.latitude) : null,
     longitude: spot.longitude ? Number(spot.longitude) : null,
-    floor: spot.floor,
+    floor: floorNo,
     includedInQuickTour: spot.includedInQuickTour,
     translations: spot.translations.map((translation) => ({
       language: translation.language as AppLanguage,
@@ -148,6 +155,10 @@ export function toTourDto(
     ? translations.find((entry) => entry.language === language)
     : undefined;
 
+  const allSpots = tour.floors.flatMap((floor) =>
+    floor.spots.map((spot) => mapSpot(spot, floor.floorNo)),
+  );
+
   return {
     id: tour.id,
     slug: tour.slug,
@@ -162,7 +173,7 @@ export function toTourDto(
     publishedAt: tour.publishedAt?.toISOString() ?? null,
     archivedAt: tour.archivedAt?.toISOString() ?? null,
     translations,
-    spots: tour.spots.map(mapSpot),
+    spots: allSpots,
     ...(localized
       ? {
           language,

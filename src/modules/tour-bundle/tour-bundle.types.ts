@@ -8,6 +8,7 @@ export type BundleManifest = {
   version: string;
   bundleId: string;
   tourId: string;
+  bundleFormatVersion: "1" | "2";
   checksum: string;
   signature: string;
   signatureAlgorithm: string;

@@ -46,11 +46,11 @@ export type SpotFaqDto = {
 
 export type SpotDto = {
   id: string;
-  tourId: string;
+  floorId: string;
+  tourId: string | null;  // Deprecated: use floor.tourId instead
   sortOrder: number;
   latitude: number | null;
   longitude: number | null;
-  floor: number;
   includedInQuickTour: boolean;
   translations: SpotTranslationDto[];
   medias: SpotMediaDto[];

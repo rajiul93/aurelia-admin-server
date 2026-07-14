@@ -22,6 +22,8 @@ function mapAuditTour(tour: Awaited<ReturnType<typeof tourRepository.findById>>)
     return null;
   }
 
+  const allSpots = tour.floors.flatMap((floor) => floor.spots);
+
   return {
     id: tour.id,
     slug: tour.slug,
@@ -35,7 +37,7 @@ function mapAuditTour(tour: Awaited<ReturnType<typeof tourRepository.findById>>)
       description: entry.description,
       slug: entry.slug,
     })),
-    spots: tour.spots.map((spot) => ({
+    spots: allSpots.map((spot) => ({
       id: spot.id,
       sortOrder: spot.sortOrder,
       translations: spot.translations.map((entry) => ({
@@ -61,12 +63,8 @@ async function ensureUniqueSlug(slug: string, excludeId?: string) {
 function mapTourForReadiness(
   tour: NonNullable<Awaited<ReturnType<typeof tourRepository.findById>>>,
 ) {
-  return {
-    coverMediaId: tour.coverMediaId,
-    translations: tour.translations,
-    route: tour.route,
-    aiKnowledge: tour.aiKnowledge,
-    spots: tour.spots.map((spot) => ({
+  const allSpots = tour.floors.flatMap((floor) =>
+    floor.spots.map((spot) => ({
       id: spot.id,
       latitude: spot.latitude != null ? Number(spot.latitude) : null,
       longitude: spot.longitude != null ? Number(spot.longitude) : null,
@@ -74,6 +72,16 @@ function mapTourForReadiness(
       media: spot.media,
       faqs: spot.faqs,
     })),
+  );
+
+  const route = tour.floors.find((floor) => floor.route)?.route ?? null;
+
+  return {
+    coverMediaId: tour.coverMediaId,
+    translations: tour.translations,
+    spots: allSpots,
+    route,
+    aiKnowledge: tour.aiKnowledge,
   };
 }
 

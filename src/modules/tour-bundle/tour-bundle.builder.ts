@@ -36,22 +36,30 @@ function footprintPoints(value: unknown) {
 }
 
 function buildNavigationMetadata(tour: TourWithBundleRelations) {
-  const spotPoints = tour.spots.flatMap((spot) =>
+  const allSpots = tour.floors?.flatMap((floor) => floor.spots) ?? [];
+  const spotPoints = allSpots.flatMap((spot) =>
     spot.latitude !== null && spot.longitude !== null
       ? [{ lat: Number(spot.latitude), lng: Number(spot.longitude) }]
       : [],
   );
-  const footprintPointsList = (tour.route?.edges ?? []).flatMap((edge) =>
+  // Collect edges from all floors
+  const allEdges = tour.floors?.flatMap((floor) =>
+    floor.route?.edges?.map((edge) => ({
+      ...edge,
+      footprintGeo: edge.footprintGeo,
+    })) ?? [],
+  ) ?? [];
+  const footprintPointsList = allEdges.flatMap((edge) =>
     footprintPoints(edge.footprintGeo) ?? [],
   );
   const allPoints = [...spotPoints, ...footprintPointsList];
   const hasCompleteCoordinates =
-    tour.spots.length > 0 &&
-    tour.spots.every(
+    allSpots.length > 0 &&
+    allSpots.every(
       (spot) => spot.latitude !== null && spot.longitude !== null,
     );
-  const expectedEdges = Math.max(tour.spots.length - 1, 0);
-  const edges = tour.route?.edges ?? [];
+  const expectedEdges = Math.max(allSpots.length - 1, 0);
+  const edges = allEdges;
   const hasCompleteFootprints =
     expectedEdges === 0 ||
     (edges.length >= expectedEdges &&
@@ -77,15 +85,19 @@ function buildNavigationMetadata(tour: TourWithBundleRelations) {
   };
 }
 
-function buildContentPayload(tour: TourWithBundleRelations) {
+function buildContentPayloadV1(tour: TourWithBundleRelations) {
   const tourDto = toTourDto(tour);
+
+  // V1: Flatten all routes into single route (backward compat)
+  const allRoutes = tour.floors?.flatMap((floor) => floor.route ?? []) ?? [];
+  const firstRoute = allRoutes[0];
 
   return {
     tour: tourDto,
-    route: tour.route
+    route: firstRoute
       ? {
-          id: tour.route.id,
-          edges: tour.route.edges.map((edge) => ({
+          id: firstRoute.id,
+          edges: firstRoute.edges.map((edge) => ({
             id: edge.id,
             fromSpotId: edge.fromSpotId,
             toSpotId: edge.toSpotId,
@@ -117,6 +129,55 @@ function buildContentPayload(tour: TourWithBundleRelations) {
   };
 }
 
+function buildContentPayloadV2(tour: TourWithBundleRelations) {
+  const tourDto = toTourDto(tour);
+
+  // V2: Per-floor routes with proper hierarchy
+  const floors = (tour.floors ?? []).map((floor) => ({
+    id: floor.id,
+    floorNo: floor.floorNo,
+    mapTileUrl: floor.mapTileUrl,
+    route: floor.route
+      ? {
+          id: floor.route.id,
+          edges: floor.route.edges.map((edge) => ({
+            id: edge.id,
+            fromSpotId: edge.fromSpotId,
+            toSpotId: edge.toSpotId,
+            sortOrder: edge.sortOrder,
+            footprintGeo: footprintPoints(edge.footprintGeo),
+          })),
+        }
+      : null,
+  }));
+
+  return {
+    tour: tourDto,
+    floors,
+    navigation: buildNavigationMetadata(tour),
+    aiKnowledge: tour.aiKnowledge.map((entry) => ({
+      id: entry.id,
+      spotId: entry.spotId,
+      sortOrder: entry.sortOrder,
+      translations: entry.translations.map((translation) => ({
+        language: translation.language,
+        audience: translation.audience,
+        title: translation.title,
+        content: translation.content,
+        keywords: translation.keywords,
+      })),
+    })),
+    versions: {
+      tourBundleVersion: tour.tourBundleVersion,
+      mediaVersion: tour.mediaVersion,
+      aiKnowledgeVersion: tour.aiKnowledgeVersion,
+      routeVersion: tour.routeVersion,
+      sqliteVersion: SQLITE_SCHEMA_VERSION,
+    },
+  };
+}
+
+
 function buildSearchDocuments(
   tour: TourWithBundleRelations,
 ): SearchDocument[] {
@@ -136,7 +197,8 @@ function buildSearchDocuments(
     });
   }
 
-  for (const spot of tour.spots) {
+  const allSpots = tour.floors?.flatMap((floor) => floor.spots) ?? [];
+  for (const spot of allSpots) {
     for (const translation of spot.translations) {
       documents.push({
         id: `spot:${spot.id}:${translation.language}:${translation.audience}`,
@@ -199,11 +261,15 @@ function fileEntry(path: string, payload: unknown): BundleManifestFile {
   };
 }
 
-export function buildTourBundleArtifacts(tour: TourWithBundleRelations) {
+export function buildTourBundleArtifacts(tour: TourWithBundleRelations, bundleFormatVersion: "1" | "2" = "2") {
   const bundleId = randomUUID();
   const createdAt = new Date().toISOString();
   const languages = [...APP_LANGUAGES];
-  const content = buildContentPayload(tour);
+
+  const content = bundleFormatVersion === "1"
+    ? buildContentPayloadV1(tour)
+    : buildContentPayloadV2(tour);
+
   const searchDocuments = buildSearchDocuments(tour);
 
   const files = [
@@ -215,6 +281,7 @@ export function buildTourBundleArtifacts(tour: TourWithBundleRelations) {
     version: String(tour.tourBundleVersion),
     bundleId,
     tourId: tour.id,
+    bundleFormatVersion,
     createdAt,
     languages,
     tourBundleVersion: tour.tourBundleVersion,

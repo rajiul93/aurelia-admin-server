@@ -49,6 +49,15 @@ export const queryKeys = {
     latest: (tourId: string) =>
       [...queryKeys.tourBundles.all, "latest", tourId] as const,
   },
+  floors: {
+    all: ["floors"] as const,
+    lists: () => [...queryKeys.floors.all, "list"] as const,
+    list: (tourId: string) => [...queryKeys.floors.lists(), tourId] as const,
+    details: () => [...queryKeys.floors.all, "detail"] as const,
+    detail: (tourId: string, floorId: string) =>
+      [...queryKeys.floors.details(), tourId, floorId] as const,
+    byTour: (tourId: string) => [...queryKeys.floors.lists(), tourId] as const,
+  },
   spots: {
     all: ["spots"] as const,
     lists: () => [...queryKeys.spots.all, "list"] as const,

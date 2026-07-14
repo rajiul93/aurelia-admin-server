@@ -7,10 +7,44 @@ export const tourIncludeRelations = {
     orderBy: { language: "asc" as const },
   },
   coverMedia: true,
-  route: {
+  floors: {
+    orderBy: { sortOrder: "asc" as const },
     include: {
-      edges: {
+      translations: {
+        orderBy: { language: "asc" as const },
+      },
+      spots: {
         orderBy: { sortOrder: "asc" as const },
+        include: {
+          translations: {
+            orderBy: { language: "asc" as const },
+          },
+          faqs: {
+            orderBy: { sortOrder: "asc" as const },
+            include: {
+              translations: {
+                orderBy: { language: "asc" as const },
+              },
+            },
+          },
+          media: {
+            orderBy: { sortOrder: "asc" as const },
+            include: {
+              media: true,
+              thumbnailMedia: true,
+            },
+          },
+        },
+      },
+      transitionPoints: {
+        orderBy: { sortOrder: "asc" as const },
+      },
+      route: {
+        include: {
+          edges: {
+            orderBy: { sortOrder: "asc" as const },
+          },
+        },
       },
     },
   },
@@ -19,29 +53,6 @@ export const tourIncludeRelations = {
     include: {
       translations: {
         orderBy: { language: "asc" as const },
-      },
-    },
-  },
-  spots: {
-    orderBy: { sortOrder: "asc" as const },
-    include: {
-      translations: {
-        orderBy: { language: "asc" as const },
-      },
-      faqs: {
-        orderBy: { sortOrder: "asc" as const },
-        include: {
-          translations: {
-            orderBy: { language: "asc" as const },
-          },
-        },
-      },
-      media: {
-        orderBy: { sortOrder: "asc" as const },
-        include: {
-          media: true,
-          thumbnailMedia: true,
-        },
       },
     },
   },
@@ -133,5 +144,11 @@ export const tourRepository = {
 
   delete(id: string) {
     return prisma.tour.delete({ where: { id } });
+  },
+
+  getFloor1ByTourId(tourId: string) {
+    return prisma.floor.findFirst({
+      where: { tourId, floorNo: 1 },
+    });
   },
 };

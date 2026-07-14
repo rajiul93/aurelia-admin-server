@@ -126,6 +126,14 @@ enum TimeOfDay {
   EVENING
 }
 
+enum TransitionType {
+  STAIRS
+  ELEVATOR
+  LIFT
+  RAMP
+  ESCALATOR
+}
+
 model User {
   id          String   @id @default(cuid())
   name        String
@@ -317,8 +325,8 @@ model Tour {
   publishedAt        DateTime?
   archivedAt         DateTime?
   translations       TourTranslation[]
-  spots              Spot[]
-  route              TourRoute?
+  floors             Floor[]
+  spots              Spot[]  // Deprecated: access via floors
   media              TourMedia[]
   aiKnowledge        AiKnowledge[]
   accessGrants       TourAccessTour[]
@@ -326,6 +334,59 @@ model Tour {
   subscriptionPurchases SubscriptionPurchaseTour[]
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
+}
+
+model Floor {
+  id              String   @id @default(cuid())
+  tourId          String
+  tour            Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  floorNo         Int
+  mapTileUrl      String?
+  sortOrder       Int      @default(0)
+
+  translations    FloorTranslation[]
+  spots           Spot[]
+  route           TourRoute?
+  transitionPoints FloorTransitionPoint[]
+  connectedFromTransitions FloorTransitionPoint[] @relation("TransitionConnections")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tourId, floorNo])
+  @@index([tourId])
+}
+
+model FloorTranslation {
+  id        String   @id @default(cuid())
+  floorId   String
+  floor     Floor    @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  language  Language
+  audience  AudienceType
+  name      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([floorId, language, audience])
+}
+
+model FloorTransitionPoint {
+  id                String        @id @default(cuid())
+  floorId           String
+  floor             Floor         @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  type              TransitionType
+  latitude          Decimal       @db.Decimal(10, 7)
+  longitude         Decimal       @db.Decimal(10, 7)
+  connectsToFloorId String?
+  connectsToFloor   Floor?        @relation("TransitionConnections", fields: [connectsToFloorId], references: [id], onDelete: SetNull)
+  sortOrder         Int           @default(0)
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([floorId])
+  @@index([connectsToFloorId])
 }
 
 model TourBundle {
@@ -568,11 +629,12 @@ model AppLanguage {
 
 model Spot {
   id                  String            @id @default(cuid())
-  tourId              String
-  tour                Tour              @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  floorId             String
+  floor               Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tourId              String?           // Deprecated: use floor.tourId instead
+  tour                Tour?             @relation(fields: [tourId], references: [id], onDelete: Cascade)
   latitude            Decimal?          @db.Decimal(10, 7)
   longitude           Decimal?          @db.Decimal(10, 7)
-  floor               Int               @default(0)
   sortOrder           Int               @default(0)
   includedInQuickTour Boolean           @default(true)
   thumbnailMediaId    String?
@@ -586,7 +648,7 @@ model Spot {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  @@index([tourId, sortOrder])
+  @@index([floorId, sortOrder])
 }
 
 model SpotTranslation {
@@ -638,8 +700,9 @@ model SpotFaqTranslation {
 
 model TourRoute {
   id        String      @id @default(cuid())
-  tourId    String      @unique
-  tour      Tour        @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  floorId   String      @unique
+  floor     Floor       @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  tourId    String?     // Deprecated: use floor.tourId instead
   edges     RouteEdge[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt

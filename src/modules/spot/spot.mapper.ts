@@ -94,11 +94,11 @@ function mapSpotFaq(
 export function toSpotDto(spot: SpotWithRelations): SpotDto {
   return {
     id: spot.id,
+    floorId: spot.floorId,
     tourId: spot.tourId,
     sortOrder: spot.sortOrder,
     latitude: spot.latitude ? Number(spot.latitude) : null,
     longitude: spot.longitude ? Number(spot.longitude) : null,
-    floor: spot.floor,
     includedInQuickTour: spot.includedInQuickTour,
     translations: spot.translations.map((translation) => ({
       language: translation.language as AppLanguage,

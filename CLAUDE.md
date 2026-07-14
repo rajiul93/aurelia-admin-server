@@ -67,8 +67,12 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
   lifecycle (`DRAFT→REVIEW→PUBLISHED→ARCHIVED`), independent content version counters
   (`tourBundleVersion`, `mediaVersion`, `aiKnowledgeVersion`, `routeVersion`). Lifecycle panel + publish
   logic in [tour.publish.ts](src/modules/tour/tour.publish.ts).
-- ✅ **Spots** — per-tour points with optional lat/lng (Decimal 10,7), floor, sort order, quick-tour
-  inclusion, thumbnail, translations (title/short/quill/description/interesting-facts), spot FAQs, media.
+- ✅ **Floors** — multi-floor support: each tour can have multiple indoor floors, each with its own map
+  and set of spots. `Floor` model stores floorNo, tourId, optional mapTileUrl. Enables indoor/multi-level
+  tours (e.g., Colosseum 4 floors). Each floor has independent navigation, route, and offline map.
+- ✅ **Spots** — per-floor points (or per-tour when single-floor tour) with optional lat/lng (Decimal 10,7),
+  sort order, quick-tour inclusion, thumbnail, translations (title/short/quill/description/interesting-facts),
+  spot FAQs, media. Spot now belongs to Floor (not directly to Tour).
 - ✅ **Tour route** — `TourRoute` + ordered `RouteEdge`s (from/to spot). Edge CRUD, **route generation**
   and **footprint generation** endpoints; walking geometry via **OSRM** ([src/lib/routing/osrm.ts](src/lib/routing/osrm.ts)),
   `footprintGeo` JSON stored per edge.
@@ -127,7 +131,7 @@ Prisma schema: [prisma/schema.prisma](prisma/schema.prisma). Postgres via Neon. 
 [prisma/seed.ts](prisma/seed.ts) (`pnpm db:seed` — seeds subscription plans + device tiers).
 
 **Models (grouped):**
-- **Content:** `Tour`, `TourTranslation`, `Spot`, `SpotTranslation`, `SpotFaq`, `SpotFaqTranslation`,
+- **Content:** `Tour`, `TourTranslation`, `Floor`, `Spot`, `SpotTranslation`, `SpotFaq`, `SpotFaqTranslation`,
   `TourRoute`, `RouteEdge`, `TourMedia`, `AiKnowledge`, `AiKnowledgeTranslation`, `TourBundle`,
   `Place`, `Category`, `Media`.
 - **Support content:** `Faq`, `FaqTranslation`, `FaqCategory`, `FaqCategoryTranslation`,
@@ -148,6 +152,49 @@ Prisma schema: [prisma/schema.prisma](prisma/schema.prisma). Postgres via Neon. 
 constraints; singleton rows use `@id @default("singleton")` (`AppReleaseConfig`,
 `SubscriptionPricingSettings`); money as `Decimal`; coordinates as `Decimal(10,7)`.
 
+### 4a. Floor Model Structure
+
+**Goal:** Support multi-floor tours (e.g., Colosseum with 4 levels). Each floor has its own map, spots, and route.
+
+```prisma
+model Floor {
+  id        String   @id @default(cuid())
+  tourId    String
+  tour      Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  floorNo   Int                      // 1, 2, 3, 4... floor number
+  mapTileUrl String?                 // Optional: custom map tile URL per floor
+  spots     Spot[]
+  route     TourRoute?               // One route per floor (optional)
+  createdAt DateTime @default(now())
+  
+  @@unique([tourId, floorNo])        // One floor per floorNo per tour
+  @@index([tourId])
+}
+
+model Spot {
+  id      String   @id @default(cuid())
+  floorId String                     // Now references Floor, not Tour directly
+  floor   Floor    @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  // ... rest of fields same (latitude, longitude, sortOrder, etc.)
+  
+  @@index([floorId, sortOrder])
+}
+
+model TourRoute {
+  id        String   @id @default(cuid())
+  floorId   String?                  // Now optional: references Floor if floor-specific route
+  floor     Floor?   @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  edges     RouteEdge[]
+  // ...
+  
+  @@unique([floorId])  // One route per floor max
+}
+```
+
+**Impact on Subscription:** When user subscribes to a Tour (e.g., Colosseum), they get access to **all floors** automatically. Admin creates one `SubscriptionPurchaseTour` entry per tour; floor separation is transparent to subscription model.
+
+**Mobile App:** When downloading Colosseum, receives all 4 floors' data. User can switch between floors on the map screen, each floor loads its own map, route, and spots.
+
 ---
 
 ## 5. API Endpoints
@@ -157,7 +204,8 @@ Base: `/api/v1`. Response envelope + errors via [src/lib/api/response.ts](src/li
 
 **Admin API (staff-only, `requireStaffSession`)** — under `/api/v1`:
 - `tours`, `tours/[tourId]`, `tours/[tourId]/lifecycle`
-- `tours/[tourId]/spots`(+`[spotId]`), `.../spots/[spotId]/faqs`(+`[faqId]`), `.../spots/[spotId]/media`(+`[mediaId]`)
+- `tours/[tourId]/floors`(+`[floorId]`) — list/create/update/delete floors for a tour
+- `tours/[tourId]/floors/[floorId]/spots`(+`[spotId]`), `.../spots/[spotId]/faqs`(+`[faqId]`), `.../spots/[spotId]/media`(+`[mediaId]`)
 - `tours/[tourId]/route`, `.../route/edges`(+`[edgeId]`), `.../route/generate`, `.../route/generate-footprints`
 - `tours/[tourId]/ai-knowledge`(+`[knowledgeId]`)
 - `tours/[tourId]/bundles/build`, `.../bundles/latest`, `.../bundles/latest/download`
@@ -240,6 +288,11 @@ in `aurelia-app`.
 - **Bundle canonical-JSON / signing** — mobile verifies offline; changing serialization or signature algo
   breaks installed-bundle verification.
 - **`MOBILE_API_KEY` ↔ `EXPO_PUBLIC_MOBILE_API_KEY`** must stay in sync across the two repos.
+- **Floor model relationship chain** — `Tour → Floor → Spot` is the new structure. Do not bypass Floor
+  when querying spots; always validate `spot.floor.tourId == expected tourId`. Breaking this causes
+  data leakage across tours.
+- **Each floor gets its own map** — `Floor.mapTileUrl` is per-floor. Bundle building must include all
+  floors' maps for Colosseum; mobile switches between floor-specific maps when user selects floor.
 
 ---
 
@@ -264,6 +317,13 @@ are **deferred** (Phases 4–5). Full plan: `~/.claude/plans/ask-what-is-use-shi
 ---
 
 ## 11. Changelog
+
+- **2026-07-14** — **Floor model + multi-floor tour architecture planned.** Designed Floor model
+  (`Tour → Floor → Spot`) to support indoor multi-level tours (e.g., Colosseum 4 floors). Each floor
+  has its own map, route, and spots. Subscription model unchanged (user gets all floors). Complete
+  audit of backend (36 files) and mobile (40 files) impact done. Documented in CLAUDE.md §4a.
+  Implementation roadmap: Prisma schema + migration → 36 backend file updates → Admin floor CRUD UI
+  → Mobile floor switching UI. ⏳ Implementation pending.
 
 - **2026-07-11** — **Test suite Phase 1** (this repo had zero tests): added Vitest 4 + coverage +
   `vitest-mock-extended`, `vitest.config.ts`, `test`/`test:watch`/`test:coverage` scripts, and the

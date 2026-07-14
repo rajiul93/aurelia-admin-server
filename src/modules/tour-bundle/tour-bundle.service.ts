@@ -1,6 +1,7 @@
 import { NotFoundError, ValidationError } from "@/lib/api/errors";
 import { auditService, type AuditContext } from "@/lib/audit";
 import { buildTourBundleArtifacts } from "./tour-bundle.builder";
+import { getBundleFormatVersion, type BundleFormatVersion } from "./tour-bundle.negotiation";
 import {
   toTourBundleDetailDto,
   toTourBundleDto,
@@ -29,7 +30,7 @@ export const tourBundleService = {
   async buildForTour(
     tourId: string,
     audit?: AuditContext,
-    options?: { force?: boolean },
+    options?: { force?: boolean; bundleFormatVersion?: BundleFormatVersion; clientApiVersion?: string },
   ) {
     const tour = await tourBundleRepository.findTourForBundle(tourId);
     if (!tour) {
@@ -45,7 +46,12 @@ export const tourBundleService = {
       tour.tourBundleVersion,
     );
 
-    const artifacts = buildTourBundleArtifacts(tour);
+    // Determine bundle format version: explicit > negotiated > default (v2)
+    const formatVersion = options?.bundleFormatVersion ??
+      getBundleFormatVersion(options?.clientApiVersion) ??
+      "2";
+
+    const artifacts = buildTourBundleArtifacts(tour, formatVersion);
 
     const bundleIsCurrent =
       !options?.force &&

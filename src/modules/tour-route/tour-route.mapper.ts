@@ -79,6 +79,7 @@ export function toRouteEdgeDto(edge: RouteEdgeWithSpots): RouteEdgeDto {
 export function toTourRouteDto(route: TourRouteWithEdges): TourRouteDto {
   return {
     id: route.id,
+    floorId: route.floorId,
     tourId: route.tourId,
     edges: route.edges.map(toRouteEdgeDto),
     createdAt: route.createdAt.toISOString(),

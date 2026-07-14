@@ -36,34 +36,43 @@ function toFootprintJson(
 }
 
 export const tourRouteRepository = {
-  findByTourId(tourId: string) {
+  // New: find by floor (not tour)
+  findByFloorId(floorId: string) {
     return prisma.tourRoute.findUnique({
+      where: { floorId },
+      include: routeInclude,
+    });
+  },
+
+  // Deprecated: kept for backward compat
+  findByTourId(tourId: string) {
+    return prisma.tourRoute.findFirst({
       where: { tourId },
       include: routeInclude,
     });
   },
 
-  findEdgeById(tourId: string, edgeId: string) {
+  findEdgeById(floorId: string, edgeId: string) {
     return prisma.routeEdge.findFirst({
       where: {
         id: edgeId,
-        route: { tourId },
+        route: { floorId },
       },
       include: edgeInclude,
     });
   },
 
-  upsertRoute(tourId: string) {
+  upsertRoute(floorId: string) {
     return prisma.tourRoute.upsert({
-      where: { tourId },
-      create: { tourId },
+      where: { floorId },
+      create: { floor: { connect: { id: floorId } } },
       update: {},
       include: routeInclude,
     });
   },
 
   replaceEdges(
-    tourId: string,
+    floorId: string,
     edges: Array<{
       fromSpotId: string;
       toSpotId: string;
@@ -72,9 +81,10 @@ export const tourRouteRepository = {
     }>,
   ) {
     return prisma.$transaction(async (tx) => {
+      const floor = await tx.floor.findUniqueOrThrow({ where: { id: floorId } });
       const route = await tx.tourRoute.upsert({
-        where: { tourId },
-        create: { tourId },
+        where: { floorId },
+        create: { floor: { connect: { id: floorId } } },
         update: {},
       });
 
@@ -96,7 +106,7 @@ export const tourRouteRepository = {
       }
 
       await tx.tour.update({
-        where: { id: tourId },
+        where: { id: floor.tourId },
         data: { routeVersion: { increment: 1 } },
       });
 
@@ -182,6 +192,99 @@ export const tourRouteRepository = {
       await tx.routeEdge.delete({ where: { id: edgeId } });
       await tx.tour.update({
         where: { id: tourId },
+        data: { routeVersion: { increment: 1 } },
+      });
+    });
+  },
+
+  findEdgeByIdInFloor(floorId: string, edgeId: string) {
+    return prisma.routeEdge.findFirst({
+      where: {
+        id: edgeId,
+        route: { floorId },
+      },
+      include: edgeInclude,
+    });
+  },
+
+  createEdgeInFloor(
+    routeId: string,
+    floorId: string,
+    data: {
+      fromSpotId: string;
+      toSpotId: string;
+      sortOrder: number;
+      footprintGeo?: FootprintPoint[] | null;
+    },
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const footprintGeo = toFootprintJson(data.footprintGeo);
+      const floor = await tx.floor.findUniqueOrThrow({ where: { id: floorId } });
+
+      const edge = await tx.routeEdge.create({
+        data: {
+          routeId,
+          fromSpotId: data.fromSpotId,
+          toSpotId: data.toSpotId,
+          sortOrder: data.sortOrder,
+          ...(footprintGeo !== undefined ? { footprintGeo } : {}),
+        },
+        include: edgeInclude,
+      });
+
+      await tx.tour.update({
+        where: { id: floor.tourId },
+        data: { routeVersion: { increment: 1 } },
+      });
+
+      return edge;
+    });
+  },
+
+  updateEdgeInFloor(
+    edgeId: string,
+    floorId: string,
+    data: {
+      fromSpotId?: string;
+      toSpotId?: string;
+      sortOrder?: number;
+      footprintGeo?: FootprintPoint[] | null;
+    },
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const footprintGeo = toFootprintJson(data.footprintGeo);
+      const floor = await tx.floor.findUniqueOrThrow({ where: { id: floorId } });
+
+      const edge = await tx.routeEdge.update({
+        where: { id: edgeId },
+        data: {
+          ...(data.fromSpotId !== undefined
+            ? { fromSpot: { connect: { id: data.fromSpotId } } }
+            : {}),
+          ...(data.toSpotId !== undefined
+            ? { toSpot: { connect: { id: data.toSpotId } } }
+            : {}),
+          ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
+          ...(footprintGeo !== undefined ? { footprintGeo } : {}),
+        },
+        include: edgeInclude,
+      });
+
+      await tx.tour.update({
+        where: { id: floor.tourId },
+        data: { routeVersion: { increment: 1 } },
+      });
+
+      return edge;
+    });
+  },
+
+  deleteEdgeInFloor(edgeId: string, floorId: string) {
+    return prisma.$transaction(async (tx) => {
+      const floor = await tx.floor.findUniqueOrThrow({ where: { id: floorId } });
+      await tx.routeEdge.delete({ where: { id: edgeId } });
+      await tx.tour.update({
+        where: { id: floor.tourId },
         data: { routeVersion: { increment: 1 } },
       });
     });

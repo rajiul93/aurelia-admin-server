@@ -26,7 +26,7 @@ async function ensureSpotOptional(tourId: string, spotId: string | null) {
     return;
   }
 
-  const spot = await spotRepository.findById(tourId, spotId);
+  const spot = await spotRepository.findByTourAndId(tourId, spotId);
   if (!spot) {
     throw new ValidationError("Spot not found on this tour");
   }

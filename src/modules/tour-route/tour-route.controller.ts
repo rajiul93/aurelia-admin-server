@@ -20,15 +20,15 @@ function getAuditContext(req: NextRequest, staffAuthUserId: string) {
 }
 
 export const tourRouteController = {
-  async getByTourId(_req: NextRequest, tourId: string) {
-    const route = await tourRouteService.getByTourId(tourId);
+  async getByTourId(_req: NextRequest, _tourId: string, floorId: string) {
+    const route = await tourRouteService.getByFloorId(floorId);
     return success(route);
   },
 
-  async replace(req: NextRequest, tourId: string, staffAuthUserId: string) {
+  async replace(req: NextRequest, _tourId: string, floorId: string, staffAuthUserId: string) {
     const body = await parseBody(req, replaceTourRouteSchema);
-    const route = await tourRouteService.replace(
-      tourId,
+    const route = await tourRouteService.replaceByFloor(
+      floorId,
       body,
       getAuditContext(req, staffAuthUserId),
     );
@@ -37,11 +37,12 @@ export const tourRouteController = {
 
   async generateFromSpots(
     req: NextRequest,
-    tourId: string,
+    _tourId: string,
+    floorId: string,
     staffAuthUserId: string,
   ) {
-    const route = await tourRouteService.generateFromSpots(
-      tourId,
+    const route = await tourRouteService.generateFromSpotsInFloor(
+      floorId,
       getAuditContext(req, staffAuthUserId),
     );
     return success(route);
@@ -49,20 +50,21 @@ export const tourRouteController = {
 
   async generateFootprintsFromOsrm(
     req: NextRequest,
-    tourId: string,
+    _tourId: string,
+    floorId: string,
     staffAuthUserId: string,
   ) {
-    const route = await tourRouteService.generateFootprintsFromOsrm(
-      tourId,
+    const route = await tourRouteService.generateFootprintsFromOsrmInFloor(
+      floorId,
       getAuditContext(req, staffAuthUserId),
     );
     return success(route);
   },
 
-  async createEdge(req: NextRequest, tourId: string, staffAuthUserId: string) {
+  async createEdge(req: NextRequest, _tourId: string, floorId: string, staffAuthUserId: string) {
     const body = await parseBody(req, createRouteEdgeSchema);
-    const edge = await tourRouteService.createEdge(
-      tourId,
+    const edge = await tourRouteService.createEdgeInFloor(
+      floorId,
       body,
       getAuditContext(req, staffAuthUserId),
     );
@@ -71,13 +73,14 @@ export const tourRouteController = {
 
   async updateEdge(
     req: NextRequest,
-    tourId: string,
+    _tourId: string,
+    floorId: string,
     edgeId: string,
     staffAuthUserId: string,
   ) {
     const body = await parseBody(req, updateRouteEdgeSchema);
-    const edge = await tourRouteService.updateEdge(
-      tourId,
+    const edge = await tourRouteService.updateEdgeInFloor(
+      floorId,
       edgeId,
       body,
       getAuditContext(req, staffAuthUserId),
@@ -87,12 +90,13 @@ export const tourRouteController = {
 
   async deleteEdge(
     req: NextRequest,
-    tourId: string,
+    _tourId: string,
+    floorId: string,
     edgeId: string,
     staffAuthUserId: string,
   ) {
-    await tourRouteService.deleteEdge(
-      tourId,
+    await tourRouteService.deleteEdgeInFloor(
+      floorId,
       edgeId,
       getAuditContext(req, staffAuthUserId),
     );

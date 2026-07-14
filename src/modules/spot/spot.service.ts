@@ -21,8 +21,8 @@ async function ensureTourExists(tourId: string) {
   return tour;
 }
 
-async function ensureSpot(tourId: string, spotId: string) {
-  const spot = await spotRepository.findById(tourId, spotId);
+async function ensureSpot(tourId: string, floorId: string, spotId: string) {
+  const spot = await spotRepository.findById(tourId, floorId, spotId);
   if (!spot) {
     throw new NotFoundError("Spot not found");
   }
@@ -37,11 +37,10 @@ function mapAuditSpot(spot: Awaited<ReturnType<typeof spotRepository.findById>>)
 
   return {
     id: spot.id,
-    tourId: spot.tourId,
+    floorId: spot.floorId,
     sortOrder: spot.sortOrder,
     latitude: spot.latitude,
     longitude: spot.longitude,
-    floor: spot.floor,
     includedInQuickTour: spot.includedInQuickTour,
     translations: spot.translations.map((entry) => ({
       language: entry.language,
@@ -93,25 +92,31 @@ function mapAuditFaq(faq: {
 }
 
 export const spotService = {
+  // New: list by floor
+  async listByFloor(floorId: string) {
+    const spots = await spotRepository.findByFloorId(floorId);
+    return toSpotDtoList(spots);
+  },
+
+  // Deprecated: kept for backward compat
   async listByTour(tourId: string) {
     await ensureTourExists(tourId);
     const spots = await spotRepository.findByTourId(tourId);
     return toSpotDtoList(spots);
   },
 
-  async getById(tourId: string, spotId: string) {
-    const spot = await ensureSpot(tourId, spotId);
+  // New: get with floor validation
+  async getById(tourId: string, floorId: string, spotId: string) {
+    const spot = await ensureSpot(tourId, floorId, spotId);
     return toSpotDto(spot);
   },
 
-  async create(tourId: string, input: CreateSpotInput, audit?: AuditContext) {
-    await ensureTourExists(tourId);
-
-    const spot = await spotRepository.create(tourId, {
+  // New: create in floor
+  async create(floorId: string, input: CreateSpotInput, audit?: AuditContext) {
+    const spot = await spotRepository.create(floorId, {
       sortOrder: input.sortOrder,
       latitude: input.latitude,
       longitude: input.longitude,
-      floor: input.floor,
       includedInQuickTour: input.includedInQuickTour,
       translations: {
         create: input.translations.map((translation) => ({
@@ -139,17 +144,17 @@ export const spotService = {
 
   async update(
     tourId: string,
+    floorId: string,
     spotId: string,
     input: UpdateSpotInput,
     audit?: AuditContext,
   ) {
-    const existing = await ensureSpot(tourId, spotId);
+    const existing = await ensureSpot(tourId, floorId, spotId);
 
     const spot = await spotRepository.update(spotId, {
       ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
       ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
       ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
-      ...(input.floor !== undefined ? { floor: input.floor } : {}),
       ...(input.includedInQuickTour !== undefined
         ? { includedInQuickTour: input.includedInQuickTour }
         : {}),
@@ -183,8 +188,8 @@ export const spotService = {
     return toSpotDto(spot);
   },
 
-  async delete(tourId: string, spotId: string, audit?: AuditContext) {
-    const existing = await ensureSpot(tourId, spotId);
+  async delete(tourId: string, floorId: string, spotId: string, audit?: AuditContext) {
+    const existing = await ensureSpot(tourId, floorId, spotId);
     await spotRepository.delete(spotId);
 
     await auditService.log({
@@ -198,13 +203,14 @@ export const spotService = {
 
   async createMedia(
     tourId: string,
+    floorId: string,
     spotId: string,
     input: CreateSpotMediaInput,
     audit?: AuditContext,
   ) {
-    await ensureSpot(tourId, spotId);
+    await ensureSpot(tourId, floorId, spotId);
 
-    const media = await spotRepository.createMedia(tourId, spotId, {
+    const media = await spotRepository.createMedia(tourId, floorId, spotId, {
       type: input.type,
       mediaId: input.mediaId,
       thumbnailMediaId: input.thumbnailMediaId ?? null,
@@ -227,6 +233,7 @@ export const spotService = {
 
   async deleteMedia(
     tourId: string,
+    _floorId: string,
     spotId: string,
     mediaId: string,
     audit?: AuditContext,
@@ -249,11 +256,12 @@ export const spotService = {
 
   async createFaq(
     tourId: string,
+    floorId: string,
     spotId: string,
     input: CreateSpotFaqInput,
     audit?: AuditContext,
   ) {
-    await ensureSpot(tourId, spotId);
+    await ensureSpot(tourId, floorId, spotId);
 
     const faq = await spotRepository.createFaq(spotId, {
       sortOrder: input.sortOrder,
@@ -280,6 +288,7 @@ export const spotService = {
 
   async updateFaq(
     tourId: string,
+    floorId: string,
     spotId: string,
     faqId: string,
     input: UpdateSpotFaqInput,
@@ -290,7 +299,7 @@ export const spotService = {
       throw new NotFoundError("FAQ not found");
     }
 
-    await ensureSpot(tourId, spotId);
+    await ensureSpot(tourId, floorId, spotId);
 
     const faq = await spotRepository.updateFaq(faqId, {
       ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
@@ -325,6 +334,7 @@ export const spotService = {
 
   async deleteFaq(
     _tourId: string,
+    _floorId: string,
     spotId: string,
     faqId: string,
     audit?: AuditContext,
