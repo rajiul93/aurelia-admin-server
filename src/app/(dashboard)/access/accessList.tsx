@@ -19,10 +19,11 @@ import {
 import { useTourAccessList } from "@/hooks/queries/use-tour-access";
 import type { TourAccessStatus } from "@/types/tour-access";
 
-function statusVariant(status: TourAccessStatus) {
+function statusVariant(status: TourAccessStatus | "PENDING") {
   switch (status) {
     case "ACTIVE":
       return "default" as const;
+    case "PENDING":
     case "EXPIRED":
       return "secondary" as const;
     case "REVOKED":
@@ -133,18 +134,22 @@ export function AccessList() {
                     <Badge variant="outline">Stored: {record.status}</Badge>
                   ) : null}
                   <Badge variant="outline">
-                    Max {record.ticketCount} session
-                    {record.ticketCount === 1 ? "" : "s"}
+                    {record.activeDeviceCount} of {record.maxDevices} device
+                    {record.maxDevices === 1 ? "" : "s"}
                   </Badge>
-                  <Badge variant="outline">
-                    {record.activeDeviceCount} active session
-                    {record.activeDeviceCount === 1 ? "" : "s"}
-                  </Badge>
+                  {record.pinLockedUntil &&
+                  new Date(record.pinLockedUntil) > new Date() ? (
+                    <Badge variant="destructive">PIN locked</Badge>
+                  ) : null}
                 </div>
-                <CardTitle className="text-base">{record.email}</CardTitle>
+                <CardTitle className="text-base">{record.phone}</CardTitle>
                 <p className="text-muted-foreground text-sm">
-                  Expires {formatDate(record.expiresAt)} ·{" "}
-                  {record.tours.length} tour{record.tours.length === 1 ? "" : "s"}
+                  {record.effectiveStatus === "PENDING"
+                    ? `Unlocks ${formatDate(record.activatedAt)}`
+                    : `Expires ${formatDate(record.expiresAt)}`}{" "}
+                  · {record.tours.length} tour
+                  {record.tours.length === 1 ? "" : "s"}
+                  {record.email ? ` · ${record.email}` : ""}
                 </p>
               </CardHeader>
 
@@ -178,7 +183,7 @@ export function AccessList() {
                     variant="outline"
                     size="sm"
                     disabled={revokeAccess.isPending}
-                    onClick={() => void handleRevoke(record.id, record.email)}
+                    onClick={() => void handleRevoke(record.id, record.phone)}
                   >
                     <Ban className="size-4" />
                     Revoke
@@ -190,7 +195,7 @@ export function AccessList() {
                   size="sm"
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   disabled={deleteAccess.isPending}
-                  onClick={() => void handleDelete(record.id, record.email)}
+                  onClick={() => void handleDelete(record.id, record.phone)}
                 >
                   <Trash2 className="size-4" />
                   Delete

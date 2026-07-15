@@ -65,12 +65,14 @@ export const replaceTourRouteSchema = z.object({
   ),
 });
 
-export const tourIdParamSchema = z.object({
+export const floorIdParamSchema = z.object({
   tourId: z.string().trim().min(1),
+  floorId: z.string().trim().min(1),
 });
 
 export const routeEdgeIdParamSchema = z.object({
   tourId: z.string().trim().min(1),
+  floorId: z.string().trim().min(1),
   edgeId: z.string().trim().min(1),
 });
 

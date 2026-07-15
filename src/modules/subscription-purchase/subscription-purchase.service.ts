@@ -59,7 +59,10 @@ export const subscriptionPurchaseService = {
   async getStatusForSession(id: string, session: MobileSessionContext) {
     const purchase = await subscriptionPurchaseRepository.findById(id);
 
-    if (!purchase || purchase.email !== session.email) {
+    // A purchase belongs to the grant that made it. Matching on email alone is
+    // not enough now that a grant may have none — an absent email must never
+    // match another absent email.
+    if (!purchase || purchase.tourAccessId !== session.tourAccessId) {
       throw new NotFoundError("Purchase not found");
     }
 
@@ -67,6 +70,16 @@ export const subscriptionPurchaseService = {
   },
 
   async createCheckout(session: MobileSessionContext, input: CheckoutInput) {
+    // Stripe needs an email for the receipt. Phone-only grants have none until
+    // the buyer supplies one at checkout.
+    const email = input.email ?? session.email;
+
+    if (!email) {
+      throw new ValidationError(
+        "An email address is required to complete the purchase.",
+      );
+    }
+
     const plan = await subscriptionPurchaseRepository.getActivePlan(
       input.planId,
     );
@@ -99,7 +112,7 @@ export const subscriptionPurchaseService = {
     });
 
     const purchase = await subscriptionPurchaseRepository.create({
-      email: session.email,
+      email,
       plan: { connect: { id: plan.id } },
       deviceCount: input.deviceCount,
       basePriceAtPurchase: price.basePrice,
@@ -181,7 +194,10 @@ export const subscriptionPurchaseService = {
         where: { id: access.id },
         data: {
           expiresAt: newExpiresAt,
-          ticketCount: Math.max(access.ticketCount, purchase.deviceCount),
+          maxDevices: Math.max(access.maxDevices, purchase.deviceCount),
+          // A phone-only buyer supplied an email at checkout; keep it so their
+          // receipts and any later purchase resolve to this same grant.
+          ...(access.email ? {} : { email: purchase.email }),
           allowSubscriptionFeatures: true,
           status: "ACTIVE",
           tours: {

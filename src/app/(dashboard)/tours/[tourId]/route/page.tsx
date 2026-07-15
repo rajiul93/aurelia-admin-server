@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -24,10 +24,14 @@ import {
   useGenerateRouteFootprints,
   useGenerateTourRoute,
 } from "@/hooks/mutations/use-tour-route-mutations";
+import { useFloors } from "@/hooks/queries/use-floors";
 import { useSpots } from "@/hooks/queries/use-spots";
 import { useTourRoute } from "@/hooks/queries/use-tour-route";
 import { useTour } from "@/hooks/queries/use-tours";
-import { getPreferredTranslation } from "@/lib/i18n/translations";
+import {
+  getPreferredAudienceTranslation,
+  getPreferredTranslation,
+} from "@/lib/i18n/translations";
 import {
   parseFootprintText,
   routeEdgeFormSchema,
@@ -39,20 +43,42 @@ export default function TourRoutePage() {
   const params = useParams<{ tourId: string }>();
   const tourId = params.tourId;
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pickedFloorId, setPickedFloorId] = useState("");
 
   const { data: tourResponse } = useTour(tourId);
+  const { data: floorsResponse, isLoading: floorsLoading } = useFloors(tourId);
   const { data: spotsResponse, isLoading: spotsLoading } = useSpots(tourId);
-  const { data: routeResponse, isLoading: routeLoading, isError, error } =
-    useTourRoute(tourId);
 
-  const createEdge = useCreateRouteEdge(tourId);
-  const deleteEdge = useDeleteRouteEdge(tourId);
-  const generateRoute = useGenerateTourRoute(tourId);
-  const generateFootprints = useGenerateRouteFootprints(tourId);
+  const floors = useMemo(
+    () => floorsResponse?.data ?? [],
+    [floorsResponse?.data],
+  );
+
+  // Floors arrive after the first render, so fall back to the first one until
+  // the user picks a floor themselves.
+  const selectedFloorId = pickedFloorId || (floors[0]?.id ?? "");
+  const setSelectedFloorId = setPickedFloorId;
+
+  const { data: routeResponse, isLoading: routeLoading, isError, error } =
+    useTourRoute(tourId, selectedFloorId);
+
+  const createEdge = useCreateRouteEdge(tourId, selectedFloorId);
+  const deleteEdge = useDeleteRouteEdge(tourId, selectedFloorId);
+  const generateRoute = useGenerateTourRoute(tourId, selectedFloorId);
+  const generateFootprints = useGenerateRouteFootprints(tourId, selectedFloorId);
 
   const tour = tourResponse?.data;
-  const spots = spotsResponse?.data ?? [];
   const edges = routeResponse?.data?.edges ?? [];
+
+  // A route only connects spots on its own floor — crossing floors is what a
+  // transition point is for.
+  const spots = useMemo(
+    () =>
+      (spotsResponse?.data ?? []).filter(
+        (spot) => spot.floorId === selectedFloorId,
+      ),
+    [spotsResponse?.data, selectedFloorId],
+  );
 
   const form = useForm<RouteEdgeFormInput>({
     resolver: zodResolver(routeEdgeFormSchema),
@@ -156,7 +182,13 @@ export default function TourRoutePage() {
     }
   }
 
-  const isLoading = spotsLoading || routeLoading;
+  const isLoading = floorsLoading || spotsLoading || routeLoading;
+  const hasFloors = floors.length > 0;
+
+  function floorLabel(floor: (typeof floors)[number]) {
+    const name = getPreferredAudienceTranslation(floor.translations)?.name;
+    return name ? `Floor ${floor.floorNo} — ${name}` : `Floor ${floor.floorNo}`;
+  }
 
   return (
     <div className="space-y-6">
@@ -175,8 +207,8 @@ export default function TourRoutePage() {
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">Route</h1>
             <p className="text-muted-foreground text-sm">
-              Define spot-to-spot edges and optional footprint polylines for
-              offline navigation.
+              Each floor has its own route. Edges connect spots on the selected
+              floor; use a transition point to move between floors.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -219,6 +251,45 @@ export default function TourRoutePage() {
           </div>
         </div>
       </div>
+
+      {!floorsLoading && !hasFloors ? (
+        <Alert>
+          <AlertDescription>
+            This tour has no floors yet.{" "}
+            <Link
+              href={`/tours/${tourId}/floors`}
+              className="font-medium underline"
+            >
+              Create a floor
+            </Link>{" "}
+            before building a route.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {hasFloors ? (
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-2 py-4">
+            <span className="text-muted-foreground mr-1 text-sm font-medium">
+              Editing route for:
+            </span>
+            {floors.map((floor) => (
+              <Button
+                key={floor.id}
+                type="button"
+                size="sm"
+                variant={
+                  floor.id === selectedFloorId ? "default" : "outline"
+                }
+                onClick={() => setSelectedFloorId(floor.id)}
+              >
+                {floorLabel(floor)}
+                <Badge variant="secondary">{floor.routeEdgeCount}</Badge>
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {submitError ? (
         <Alert variant="destructive">

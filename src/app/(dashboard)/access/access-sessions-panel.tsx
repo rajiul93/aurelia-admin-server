@@ -76,11 +76,12 @@ export function AccessSessionsPanel({ access }: AccessSessionsPanelProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Active sessions</CardTitle>
+        <CardTitle>Active devices</CardTitle>
         <CardDescription>
-          {access.activeDeviceCount} of {access.ticketCount} concurrent sessions
-          in use. Revoked devices lose access immediately and must sign in again
-          with OTP.
+          {access.activeDeviceCount} of {access.maxDevices} device
+          {access.maxDevices === 1 ? "" : "s"} in use. The buyer cannot remove a
+          device themselves — remove one here to free a slot, and that device
+          loses access immediately and must unlock again with the PIN.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

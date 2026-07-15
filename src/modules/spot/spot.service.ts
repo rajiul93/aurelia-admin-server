@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { NotFoundError } from "@/lib/api/errors";
+import { NotFoundError, ValidationError } from "@/lib/api/errors";
 import { auditService, type AuditContext } from "@/lib/audit";
+import { floorRepository } from "@/modules/floor/floor.repository";
 import { tourRepository } from "@/modules/tour/tour.repository";
 import { toSpotDto, toSpotDtoList } from "./spot.mapper";
 import { spotRepository } from "./spot.repository";
@@ -28,6 +29,28 @@ async function ensureSpot(tourId: string, floorId: string, spotId: string) {
   }
 
   return spot;
+}
+
+// A spot may only sit on a floor of its own tour — resolving the floor through
+// the tour is what stops a floorId from another tour being accepted here.
+async function resolveFloorId(tourId: string, floorId?: string) {
+  if (!floorId) {
+    const fallback = await tourRepository.getFloor1ByTourId(tourId);
+    if (!fallback) {
+      throw new ValidationError(
+        "This tour has no floors yet. Create a floor before adding spots.",
+      );
+    }
+
+    return fallback.id;
+  }
+
+  const floor = await floorRepository.findById(tourId, floorId);
+  if (!floor) {
+    throw new ValidationError("Floor not found on this tour");
+  }
+
+  return floor.id;
 }
 
 function mapAuditSpot(spot: Awaited<ReturnType<typeof spotRepository.findById>>) {
@@ -92,6 +115,18 @@ function mapAuditFaq(faq: {
 }
 
 export const spotService = {
+  // The floor a spot actually sits on. Route handlers need this because a spot
+  // is addressed by /tours/{tourId}/spots/{spotId} with no floor in the path —
+  // assuming the tour's first floor would 404 every spot on an upper floor.
+  async getFloorIdForSpot(tourId: string, spotId: string) {
+    const spot = await spotRepository.findByTourAndId(tourId, spotId);
+    if (!spot) {
+      throw new NotFoundError("Spot not found");
+    }
+
+    return spot.floorId;
+  },
+
   // New: list by floor
   async listByFloor(floorId: string) {
     const spots = await spotRepository.findByFloorId(floorId);
@@ -111,8 +146,10 @@ export const spotService = {
     return toSpotDto(spot);
   },
 
-  // New: create in floor
-  async create(floorId: string, input: CreateSpotInput, audit?: AuditContext) {
+  // Creates the spot on input.floorId, or the tour's lowest floor when unset.
+  async create(tourId: string, input: CreateSpotInput, audit?: AuditContext) {
+    const floorId = await resolveFloorId(tourId, input.floorId);
+
     const spot = await spotRepository.create(floorId, {
       sortOrder: input.sortOrder,
       latitude: input.latitude,
@@ -151,7 +188,16 @@ export const spotService = {
   ) {
     const existing = await ensureSpot(tourId, floorId, spotId);
 
+    // Moving the spot to another floor of this tour.
+    const targetFloorId =
+      input.floorId !== undefined && input.floorId !== floorId
+        ? await resolveFloorId(tourId, input.floorId)
+        : undefined;
+
     const spot = await spotRepository.update(spotId, {
+      ...(targetFloorId
+        ? { floor: { connect: { id: targetFloorId } } }
+        : {}),
       ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
       ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
       ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),

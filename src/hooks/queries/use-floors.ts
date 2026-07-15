@@ -5,7 +5,8 @@ import { queryKeys } from "@/lib/query/keys";
 export function useFloors(tourId: string) {
   return useQuery({
     queryKey: queryKeys.floors.byTour(tourId),
-    queryFn: () => floorsService.listByTour(tourId),
+    queryFn: () => floorsService.list(tourId),
+    enabled: Boolean(tourId),
   });
 }
 
@@ -13,6 +14,6 @@ export function useFloor(tourId: string, floorId: string) {
   return useQuery({
     queryKey: queryKeys.floors.detail(tourId, floorId),
     queryFn: () => floorsService.getById(tourId, floorId),
-    enabled: !!tourId && !!floorId,
+    enabled: Boolean(tourId) && Boolean(floorId),
   });
 }

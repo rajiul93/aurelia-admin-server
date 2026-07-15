@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import { buildTourBundleArtifacts } from "./tour-bundle.builder";
+import type {
+  BundleContentV1,
+  BundleContentV2,
+} from "./tour-bundle.builder";
 import type { TourWithBundleRelations } from "./tour-bundle.repository";
 
 describe("TourBundleIntegration", () => {
@@ -38,17 +43,39 @@ describe("TourBundleIntegration", () => {
         floorNo: 1,
         mapTileUrl: "https://tiles.example.com/floor1/{z}/{x}/{y}.pbf",
         sortOrder: 0,
+        coverMediaId: "media-floor-1",
+        coverMedia: {
+          id: "media-floor-1",
+          url: "https://cdn.example.com/floor-1-cover.jpg",
+          fileName: "floor-1-cover.jpg",
+          originalName: "floor-1-cover.jpg",
+          key: "floors/floor-1-cover.jpg",
+          mimeType: "image/jpeg",
+          size: 1024,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
-        translations: [],
+        translations: [
+          {
+            id: "ft-1",
+            floorId: "floor-1",
+            language: "en",
+            audience: "ADULTS",
+            name: "Ground Floor",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
         spots: [
           {
             id: "spot-1",
             floorId: "floor-1",
             tourId: "tour-1",
             sortOrder: 0,
-            latitude: 41.89 as any,
-            longitude: 12.49 as any,
+            latitude: new Prisma.Decimal(41.89),
+            longitude: new Prisma.Decimal(12.49),
             includedInQuickTour: true,
             thumbnailMediaId: null,
             createdAt: new Date(),
@@ -90,6 +117,8 @@ describe("TourBundleIntegration", () => {
         floorNo: 2,
         mapTileUrl: "https://tiles.example.com/floor2/{z}/{x}/{y}.pbf",
         sortOrder: 1,
+        coverMediaId: null,
+        coverMedia: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         translations: [],
@@ -99,8 +128,8 @@ describe("TourBundleIntegration", () => {
             floorId: "floor-2",
             tourId: "tour-1",
             sortOrder: 0,
-            latitude: 41.89 as any,
-            longitude: 12.49 as any,
+            latitude: new Prisma.Decimal(41.89),
+            longitude: new Prisma.Decimal(12.49),
             includedInQuickTour: false,
             thumbnailMediaId: null,
             createdAt: new Date(),
@@ -145,20 +174,34 @@ describe("TourBundleIntegration", () => {
       const artifacts = buildTourBundleArtifacts(mockTourWithFloors, "2");
 
       expect(artifacts.manifest.bundleFormatVersion).toBe("2");
-      expect((artifacts.content as any).floors).toBeDefined();
-      expect((artifacts.content as any).floors).toHaveLength(2);
-      expect((artifacts.content as any).floors?.[0]?.id).toBe("floor-1");
-      expect((artifacts.content as any).floors?.[0]?.route).toBeDefined();
-      expect((artifacts.content as any).floors?.[1]?.id).toBe("floor-2");
+      expect((artifacts.content as BundleContentV2).floors).toBeDefined();
+      expect((artifacts.content as BundleContentV2).floors).toHaveLength(2);
+      expect((artifacts.content as BundleContentV2).floors?.[0]?.id).toBe("floor-1");
+      expect((artifacts.content as BundleContentV2).floors?.[0]?.route).toBeDefined();
+      expect((artifacts.content as BundleContentV2).floors?.[1]?.id).toBe("floor-2");
+    });
+
+    it("carries the floor cover image and translated names in v2", () => {
+      const artifacts = buildTourBundleArtifacts(mockTourWithFloors, "2");
+      const floors = (artifacts.content as BundleContentV2).floors;
+
+      expect(floors?.[0]?.coverUrl).toBe(
+        "https://cdn.example.com/floor-1-cover.jpg",
+      );
+      expect(floors?.[0]?.translations).toEqual([
+        { language: "en", audience: "ADULTS", name: "Ground Floor" },
+      ]);
+      // A floor with no cover ships null, not a missing key.
+      expect(floors?.[1]?.coverUrl).toBeNull();
     });
 
     it("should include map tile URLs in v2 format", () => {
       const artifacts = buildTourBundleArtifacts(mockTourWithFloors, "2");
 
-      expect((artifacts.content as any).floors?.[0]?.mapTileUrl).toBe(
+      expect((artifacts.content as BundleContentV2).floors?.[0]?.mapTileUrl).toBe(
         "https://tiles.example.com/floor1/{z}/{x}/{y}.pbf",
       );
-      expect((artifacts.content as any).floors?.[1]?.mapTileUrl).toBe(
+      expect((artifacts.content as BundleContentV2).floors?.[1]?.mapTileUrl).toBe(
         "https://tiles.example.com/floor2/{z}/{x}/{y}.pbf",
       );
     });
@@ -169,8 +212,8 @@ describe("TourBundleIntegration", () => {
       const artifacts = buildTourBundleArtifacts(mockTourWithFloors, "1");
 
       expect(artifacts.manifest.bundleFormatVersion).toBe("1");
-      expect((artifacts.content as any).route).toBeDefined();
-      expect((artifacts.content as any).floors).toBeUndefined();
+      expect((artifacts.content as BundleContentV1).route).toBeDefined();
+      expect((artifacts.content as BundleContentV2).floors).toBeUndefined();
     });
   });
 

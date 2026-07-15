@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -173,6 +173,15 @@ export function TourList() {
                   >
                     <Pencil className="size-4" />
                     Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/tours/${tour.id}/floors`} />}
+                  >
+                    <Layers className="size-4" />
+                    Floors
                   </Button>
                   <Button
                     variant="outline"

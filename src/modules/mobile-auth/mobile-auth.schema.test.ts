@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  deviceRevokeSchema,
   otpRequestSchema,
   otpVerifySchema,
+  unlockSchema,
 } from "./mobile-auth.schema";
 
 describe("otpRequestSchema", () => {
@@ -63,12 +63,36 @@ describe("otpVerifySchema", () => {
   });
 });
 
-describe("deviceRevokeSchema", () => {
-  it("allows an empty body (revoke current device)", () => {
-    expect(deviceRevokeSchema.safeParse({}).success).toBe(true);
+describe("unlockSchema", () => {
+  const valid = {
+    phone: " +880 1712-345678 ",
+    pin: "0417",
+    deviceId: "device-abcdefgh",
+    platform: "android",
+  };
+
+  it("accepts a phone and a 4-digit PIN", () => {
+    const result = unlockSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    expect(result.data?.pin).toBe("0417");
   });
 
-  it("rejects a too-short deviceId when provided", () => {
-    expect(deviceRevokeSchema.safeParse({ deviceId: "abc" }).success).toBe(false);
+  it("keeps a leading zero in the PIN", () => {
+    expect(unlockSchema.safeParse({ ...valid, pin: "0007" }).data?.pin).toBe(
+      "0007",
+    );
+  });
+
+  it("rejects a PIN that is not exactly 4 digits", () => {
+    for (const pin of ["123", "12345", "abcd", "12 4", ""]) {
+      expect(unlockSchema.safeParse({ ...valid, pin }).success).toBe(false);
+    }
+  });
+
+  it("rejects a missing phone or an unknown platform", () => {
+    expect(unlockSchema.safeParse({ ...valid, phone: "" }).success).toBe(false);
+    expect(unlockSchema.safeParse({ ...valid, platform: "web" }).success).toBe(
+      false,
+    );
   });
 });

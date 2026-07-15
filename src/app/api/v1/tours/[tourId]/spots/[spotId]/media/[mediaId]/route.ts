@@ -1,8 +1,6 @@
-import { NotFoundError } from "@/lib/api/errors";
 import { withErrorHandler } from "@/lib/api/handler";
 import { requireStaffSessionFromRequest } from "@/lib/api/require-staff";
-import { spotController } from "@/modules/spot";
-import { tourRepository } from "@/modules/tour";
+import { spotController, spotService } from "@/modules/spot";
 
 type RouteContext = {
   params: Promise<Record<string, string>>;
@@ -13,7 +11,13 @@ export const DELETE = withErrorHandler(async (req, context: RouteContext) => {
   const { tourId, spotId, mediaId } = spotController.parseMediaParams(
     await context.params,
   );
-  const floor = await tourRepository.getFloor1ByTourId(tourId);
-  if (!floor) throw new NotFoundError("Tour has no floors");
-  return spotController.deleteMedia(req, tourId, floor.id, spotId, mediaId, staff.id);
+  const floorId = await spotService.getFloorIdForSpot(tourId, spotId);
+  return spotController.deleteMedia(
+    req,
+    tourId,
+    floorId,
+    spotId,
+    mediaId,
+    staff.id,
+  );
 });

@@ -305,6 +305,7 @@ model Media {
   faqCategories FaqCategory[]
   tours         Tour[]
   spots         Spot[]
+  floors        Floor[]
   tourMedia     TourMedia[]
   tourMediaThumbnails TourMedia[] @relation("TourMediaThumbnail")
   appAssets     AppAsset[]
@@ -343,6 +344,8 @@ model Floor {
   floorNo         Int
   mapTileUrl      String?
   sortOrder       Int      @default(0)
+  coverMediaId    String?
+  coverMedia      Media?   @relation(fields: [coverMediaId], references: [id], onDelete: SetNull)
 
   translations    FloorTranslation[]
   spots           Spot[]
@@ -428,12 +431,23 @@ model TourTranslation {
   @@unique([language, audience, slug])
 }
 
+/// A buyer's access grant. Identity is the phone number + a 4-digit PIN the admin
+/// sets and passes on by hand (SMS/WhatsApp) — we never hold the buyer's email,
+/// so `email` is only present when they came through self-service Stripe checkout.
 model TourAccess {
   id                        String           @id @default(cuid())
-  email                     String
+  phone                     String           @unique
+  pinHash                   String
+  email                     String?
+  /// Access opens on this date and closes on expiresAt; outside that window the tour is locked.
+  activatedAt               DateTime         @default(now())
   expiresAt                 DateTime
   status                    TourAccessStatus @default(ACTIVE)
-  ticketCount               Int              @default(1)
+  /// How many devices may hold an active session at once.
+  maxDevices                Int              @default(1)
+  /// Brute-force guard: a 4-digit PIN is only 10k combinations.
+  failedPinAttempts         Int              @default(0)
+  pinLockedUntil            DateTime?
   allowSubscriptionFeatures Boolean          @default(false)
   source                    TourAccessSource @default(ADMIN)
   notes                     String?

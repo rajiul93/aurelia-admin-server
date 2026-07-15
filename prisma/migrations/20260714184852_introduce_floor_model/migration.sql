@@ -42,64 +42,6 @@ CREATE TABLE "FloorTransitionPoint" (
     CONSTRAINT "FloorTransitionPoint_pkey" PRIMARY KEY ("id")
 );
 
--- Step 1: Create Floor records for existing tours (all spots go to Floor 1)
-INSERT INTO "Floor" ("id", "tourId", "floorNo", "sortOrder", "createdAt", "updatedAt")
-SELECT
-  gen_random_uuid()::text,
-  "id",
-  1,
-  0,
-  CURRENT_TIMESTAMP,
-  CURRENT_TIMESTAMP
-FROM "Tour";
-
--- Step 2: Add floorId column to Spot table (nullable first)
-ALTER TABLE "Spot" ADD COLUMN "floorId" TEXT;
-
--- Step 3: Update all spots to belong to Floor 1 of their tour
-UPDATE "Spot"
-SET "floorId" = (
-  SELECT "Floor"."id"
-  FROM "Floor"
-  WHERE "Floor"."tourId" = "Spot"."tourId" AND "Floor"."floorNo" = 1
-  LIMIT 1
-);
-
--- Step 4: Make floorId NOT NULL
-ALTER TABLE "Spot" ALTER COLUMN "floorId" SET NOT NULL;
-
--- Step 5: Add FK constraint on floorId
-ALTER TABLE "Spot" ADD CONSTRAINT "Spot_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE;
-
--- Step 6: Add floorId column to TourRoute (nullable first)
-ALTER TABLE "TourRoute" ADD COLUMN "floorId" TEXT;
-
--- Step 7: Update all routes to belong to Floor 1 of their tour
-UPDATE "TourRoute"
-SET "floorId" = (
-  SELECT "Floor"."id"
-  FROM "Floor"
-  WHERE "Floor"."tourId" = "TourRoute"."tourId" AND "Floor"."floorNo" = 1
-  LIMIT 1
-);
-
--- Step 8: Make floorId NOT NULL
-ALTER TABLE "TourRoute" ALTER COLUMN "floorId" SET NOT NULL;
-
--- Step 9: Add FK constraint on floorId
-ALTER TABLE "TourRoute" ADD CONSTRAINT "TourRoute_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE;
-
--- Step 10: Drop old tourId FK from TourRoute (but keep tourId column for now, deprecated)
-ALTER TABLE "TourRoute" DROP CONSTRAINT "TourRoute_tourId_fkey";
-ALTER TABLE "TourRoute" DROP CONSTRAINT "TourRoute_tourId_key";
-
--- Step 11: Update Spot index from tourId to floorId
-DROP INDEX "Spot_tourId_sortOrder_idx";
-CREATE INDEX "Spot_floorId_sortOrder_idx" ON "Spot"("floorId", "sortOrder");
-
--- Step 12: Drop old tourId FK from Spot (but keep tourId column for now, deprecated)
-ALTER TABLE "Spot" DROP CONSTRAINT "Spot_tourId_fkey";
-
 -- CreateIndex Floor
 CREATE UNIQUE INDEX "Floor_tourId_floorNo_key" ON "Floor"("tourId", "floorNo");
 CREATE INDEX "Floor_tourId_idx" ON "Floor"("tourId");
@@ -112,11 +54,70 @@ CREATE INDEX "FloorTransitionPoint_floorId_idx" ON "FloorTransitionPoint"("floor
 CREATE INDEX "FloorTransitionPoint_connectsToFloorId_idx" ON "FloorTransitionPoint"("connectsToFloorId");
 
 -- AddForeignKey Floor
-ALTER TABLE "Floor" ADD CONSTRAINT "Floor_tourId_fkey" FOREIGN KEY ("tourId") REFERENCES "Tour"("id") ON DELETE CASCADE;
+ALTER TABLE "Floor" ADD CONSTRAINT "Floor_tourId_fkey" FOREIGN KEY ("tourId") REFERENCES "Tour"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey FloorTranslation
-ALTER TABLE "FloorTranslation" ADD CONSTRAINT "FloorTranslation_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE;
+ALTER TABLE "FloorTranslation" ADD CONSTRAINT "FloorTranslation_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey FloorTransitionPoint
-ALTER TABLE "FloorTransitionPoint" ADD CONSTRAINT "FloorTransitionPoint_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE;
-ALTER TABLE "FloorTransitionPoint" ADD CONSTRAINT "FloorTransitionPoint_connectsToFloorId_fkey" FOREIGN KEY ("connectsToFloorId") REFERENCES "Floor"("id") ON DELETE SET NULL;
+ALTER TABLE "FloorTransitionPoint" ADD CONSTRAINT "FloorTransitionPoint_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "FloorTransitionPoint" ADD CONSTRAINT "FloorTransitionPoint_connectsToFloorId_fkey" FOREIGN KEY ("connectsToFloorId") REFERENCES "Floor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Backfill: every existing tour gets a Floor 1, which all of its spots and its
+-- route move onto. Pre-Floor data was single-level (Spot."floor" was always 0),
+-- and tour.repository.getFloor1ByTourId() looks up floorNo = 1, so Floor 1 is
+-- the floor the admin API defaults to for these tours.
+INSERT INTO "Floor" ("id", "tourId", "floorNo", "sortOrder", "createdAt", "updatedAt")
+SELECT
+  gen_random_uuid()::text,
+  "id",
+  1,
+  0,
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+FROM "Tour";
+
+-- Spot: move from Tour to Floor
+ALTER TABLE "Spot" ADD COLUMN "floorId" TEXT;
+
+UPDATE "Spot"
+SET "floorId" = (
+  SELECT "Floor"."id"
+  FROM "Floor"
+  WHERE "Floor"."tourId" = "Spot"."tourId" AND "Floor"."floorNo" = 1
+  LIMIT 1
+);
+
+ALTER TABLE "Spot" ALTER COLUMN "floorId" SET NOT NULL;
+ALTER TABLE "Spot" ADD CONSTRAINT "Spot_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Spot."tourId" stays (deprecated, now nullable) so the Tour.spots relation keeps working.
+ALTER TABLE "Spot" ALTER COLUMN "tourId" DROP NOT NULL;
+
+-- Spot."floor" (the old integer floor number) is superseded by the Floor relation.
+ALTER TABLE "Spot" DROP COLUMN "floor";
+
+DROP INDEX "Spot_tourId_sortOrder_idx";
+CREATE INDEX "Spot_floorId_sortOrder_idx" ON "Spot"("floorId", "sortOrder");
+
+-- TourRoute: move from Tour to Floor (one route per floor)
+ALTER TABLE "TourRoute" ADD COLUMN "floorId" TEXT;
+
+UPDATE "TourRoute"
+SET "floorId" = (
+  SELECT "Floor"."id"
+  FROM "Floor"
+  WHERE "Floor"."tourId" = "TourRoute"."tourId" AND "Floor"."floorNo" = 1
+  LIMIT 1
+);
+
+ALTER TABLE "TourRoute" ALTER COLUMN "floorId" SET NOT NULL;
+ALTER TABLE "TourRoute" ADD CONSTRAINT "TourRoute_floorId_fkey" FOREIGN KEY ("floorId") REFERENCES "Floor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "TourRoute_floorId_key" ON "TourRoute"("floorId");
+
+-- TourRoute."tourId" stays as a deprecated, unconstrained column: the Tour relation
+-- is gone from the schema, so its FK and its one-route-per-tour unique index go too.
+-- ("TourRoute_tourId_key" is a unique index, not a table constraint.)
+ALTER TABLE "TourRoute" DROP CONSTRAINT "TourRoute_tourId_fkey";
+DROP INDEX "TourRoute_tourId_key";
+ALTER TABLE "TourRoute" ALTER COLUMN "tourId" DROP NOT NULL;

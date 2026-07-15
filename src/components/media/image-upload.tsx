@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { IMAGE_ACCEPT, MAX_IMAGE_SIZE_LABEL } from "@/lib/media/constants";
 import { validateClientImageFile } from "@/lib/media/validation";
 import { cn } from "@/lib/utils";
-import type { Media, MediaFieldValue } from "@/types/media";
+import type { MediaFieldValue } from "@/types/media";
 
 type ImageUploadProps = {
   value: MediaFieldValue;
   onChange: (value: MediaFieldValue) => void;
-  existingMedia?: Media | null;
+  // Only the URL is read to render the preview, so any media-like object with a
+  // url works (e.g. a floor cover DTO carrying just { id, url }).
+  existingMedia?: { url: string } | null;
   label?: string;
   description?: string;
   error?: string;

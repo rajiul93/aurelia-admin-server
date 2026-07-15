@@ -10,46 +10,77 @@ function parseExpiresAt(value: string) {
   return date;
 }
 
-const expiresAtSchema = z
+function dateSchema(label: string) {
+  return z
+    .string()
+    .trim()
+    .min(1, `${label} is required`)
+    .refine((value) => parseExpiresAt(value) !== null, {
+      message: `Invalid ${label.toLowerCase()}`,
+    })
+    .transform((value) => parseExpiresAt(value)!);
+}
+
+const expiresAtSchema = dateSchema("Expiration date");
+const activatedAtSchema = dateSchema("Activation date");
+
+/** What the admin sends the buyer by hand. Four digits, leading zeros kept. */
+const pinSchema = z
   .string()
   .trim()
-  .min(1, "Expiration date is required")
-  .refine((value) => parseExpiresAt(value) !== null, {
-    message: "Invalid expiration date",
-  })
-  .transform((value) => parseExpiresAt(value)!);
+  .regex(/^\d{4}$/, "PIN must be exactly 4 digits");
 
-export const createTourAccessSchema = z.object({
-  email: z.string().trim().email("Valid email is required"),
-  expiresAt: expiresAtSchema,
-  ticketCount: z.coerce.number().int().min(1).max(20).default(1),
-  allowSubscriptionFeatures: z.boolean().default(false),
-  notes: z.string().trim().max(1000).optional(),
-  tourIds: z
-    .array(z.string().trim().min(1))
-    .min(1, "At least one tour is required"),
-});
+const phoneSchema = z
+  .string()
+  .trim()
+  .min(6, "Phone number is required")
+  .max(30, "Phone number is too long");
+
+export const createTourAccessSchema = z
+  .object({
+    phone: phoneSchema,
+    pin: pinSchema,
+    email: z.string().trim().email("Valid email is required").optional(),
+    activatedAt: activatedAtSchema,
+    expiresAt: expiresAtSchema,
+    maxDevices: z.coerce.number().int().min(1).max(20).default(1),
+    allowSubscriptionFeatures: z.boolean().default(false),
+    notes: z.string().trim().max(1000).optional(),
+    tourIds: z
+      .array(z.string().trim().min(1))
+      .min(1, "At least one tour is required"),
+  })
+  .refine((value) => value.expiresAt > value.activatedAt, {
+    message: "Expiry date must be after the activation date",
+    path: ["expiresAt"],
+  });
 
 export const updateTourAccessSchema = z
   .object({
-    email: z.string().trim().email().optional(),
+    phone: phoneSchema.optional(),
+    /** Only sent when the admin is resetting the PIN; absent leaves it alone. */
+    pin: pinSchema.optional(),
+    email: z.string().trim().email().nullable().optional(),
+    activatedAt: activatedAtSchema.optional(),
     expiresAt: expiresAtSchema.optional(),
-    ticketCount: z.coerce.number().int().min(1).max(20).optional(),
+    maxDevices: z.coerce.number().int().min(1).max(20).optional(),
     allowSubscriptionFeatures: z.boolean().optional(),
     notes: z.string().trim().max(1000).nullable().optional(),
     tourIds: z.array(z.string().trim().min(1)).min(1).optional(),
     status: z.enum(["ACTIVE", "REVOKED"]).optional(),
   })
+  .refine((value) => Object.values(value).some((entry) => entry !== undefined), {
+    message: "At least one field is required",
+  })
   .refine(
     (value) =>
-      value.email !== undefined ||
-      value.expiresAt !== undefined ||
-      value.ticketCount !== undefined ||
-      value.allowSubscriptionFeatures !== undefined ||
-      value.notes !== undefined ||
-      value.tourIds !== undefined ||
-      value.status !== undefined,
-    { message: "At least one field is required" },
+      value.activatedAt === undefined ||
+      value.expiresAt === undefined ||
+      value.expiresAt > value.activatedAt,
+    {
+      message: "Expiry date must be after the activation date",
+      path: ["expiresAt"],
+    },
   );
 
 export const listTourAccessQuerySchema = z.object({

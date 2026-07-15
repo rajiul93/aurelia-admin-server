@@ -30,13 +30,18 @@ function getTourTitle(tour: Tour & { translations: TourTranslation[] }) {
 
 function resolveEffectiveStatus(
   access: TourAccess,
-): TourAccessStatus {
+): TourAccessStatus | "PENDING" {
   if (access.status === "REVOKED") {
     return "REVOKED";
   }
 
   if (access.expiresAt.getTime() < Date.now()) {
     return "EXPIRED";
+  }
+
+  // Dated to open in the future: the buyer has their PIN but cannot unlock yet.
+  if (access.activatedAt.getTime() > Date.now()) {
+    return "PENDING";
   }
 
   return "ACTIVE";
@@ -57,13 +62,17 @@ export function toTourAccessDto(
 ): TourAccessDto {
   const effectiveStatus = resolveEffectiveStatus(access);
 
+  // pinHash is deliberately absent: it must never leave the server.
   return {
     id: access.id,
+    phone: access.phone,
     email: access.email,
+    activatedAt: access.activatedAt.toISOString(),
     expiresAt: access.expiresAt.toISOString(),
     status: access.status,
     effectiveStatus,
-    ticketCount: access.ticketCount,
+    maxDevices: access.maxDevices,
+    pinLockedUntil: access.pinLockedUntil?.toISOString() ?? null,
     allowSubscriptionFeatures: access.allowSubscriptionFeatures,
     notes: access.notes,
     activatedById: access.activatedById,

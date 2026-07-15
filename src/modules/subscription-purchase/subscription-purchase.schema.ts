@@ -6,6 +6,13 @@ export const checkoutSchema = z.object({
   tourIds: z
     .array(z.string().trim().min(1))
     .min(1, "Select at least one tour"),
+  /**
+   * Buyers are identified by phone now, so most grants carry no email. Stripe
+   * still needs one for the receipt — the app asks for it at checkout, and it is
+   * stored back on the grant. Optional here because a grant that already has an
+   * email (an earlier self-service purchase) does not need to re-supply it.
+   */
+  email: z.string().trim().email().optional(),
 });
 
 export const listSubscriptionPurchasesQuerySchema = z.object({

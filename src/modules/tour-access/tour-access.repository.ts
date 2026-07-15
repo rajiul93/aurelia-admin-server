@@ -32,7 +32,10 @@ export const tourAccessRepository = {
     const where: Prisma.TourAccessWhereInput = {};
 
     if (options.search) {
-      where.email = { contains: options.search, mode: "insensitive" };
+      where.OR = [
+        { phone: { contains: options.search, mode: "insensitive" } },
+        { email: { contains: options.search, mode: "insensitive" } },
+      ];
     }
 
     if (options.status === "REVOKED") {

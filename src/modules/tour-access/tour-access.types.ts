@@ -17,11 +17,16 @@ export type DeviceSessionDto = {
 
 export type TourAccessDto = {
   id: string;
-  email: string;
+  phone: string;
+  email: string | null;
+  activatedAt: string;
   expiresAt: string;
   status: TourAccessStatus;
-  effectiveStatus: TourAccessStatus;
-  ticketCount: number;
+  /** PENDING = dated to open in the future. Never stored, only derived. */
+  effectiveStatus: TourAccessStatus | "PENDING";
+  maxDevices: number;
+  /** Set while the buyer is locked out after too many wrong PINs. */
+  pinLockedUntil: string | null;
   allowSubscriptionFeatures: boolean;
   notes: string | null;
   activatedById: string | null;

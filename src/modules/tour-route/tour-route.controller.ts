@@ -3,9 +3,9 @@ import { success } from "@/lib/api/response";
 import { parseBody, parseParams } from "@/lib/api/validate";
 import {
   createRouteEdgeSchema,
+  floorIdParamSchema,
   routeEdgeIdParamSchema,
   replaceTourRouteSchema,
-  tourIdParamSchema,
   updateRouteEdgeSchema,
 } from "./tour-route.schema";
 import { tourRouteService } from "./tour-route.service";
@@ -20,14 +20,20 @@ function getAuditContext(req: NextRequest, staffAuthUserId: string) {
 }
 
 export const tourRouteController = {
-  async getByTourId(_req: NextRequest, _tourId: string, floorId: string) {
-    const route = await tourRouteService.getByFloorId(floorId);
+  async getByFloor(_req: NextRequest, tourId: string, floorId: string) {
+    const route = await tourRouteService.getByFloor(tourId, floorId);
     return success(route);
   },
 
-  async replace(req: NextRequest, _tourId: string, floorId: string, staffAuthUserId: string) {
+  async replace(
+    req: NextRequest,
+    tourId: string,
+    floorId: string,
+    staffAuthUserId: string,
+  ) {
     const body = await parseBody(req, replaceTourRouteSchema);
     const route = await tourRouteService.replaceByFloor(
+      tourId,
       floorId,
       body,
       getAuditContext(req, staffAuthUserId),
@@ -37,11 +43,12 @@ export const tourRouteController = {
 
   async generateFromSpots(
     req: NextRequest,
-    _tourId: string,
+    tourId: string,
     floorId: string,
     staffAuthUserId: string,
   ) {
-    const route = await tourRouteService.generateFromSpotsInFloor(
+    const route = await tourRouteService.generateFromSpots(
+      tourId,
       floorId,
       getAuditContext(req, staffAuthUserId),
     );
@@ -50,20 +57,27 @@ export const tourRouteController = {
 
   async generateFootprintsFromOsrm(
     req: NextRequest,
-    _tourId: string,
+    tourId: string,
     floorId: string,
     staffAuthUserId: string,
   ) {
-    const route = await tourRouteService.generateFootprintsFromOsrmInFloor(
+    const route = await tourRouteService.generateFootprintsFromOsrm(
+      tourId,
       floorId,
       getAuditContext(req, staffAuthUserId),
     );
     return success(route);
   },
 
-  async createEdge(req: NextRequest, _tourId: string, floorId: string, staffAuthUserId: string) {
+  async createEdge(
+    req: NextRequest,
+    tourId: string,
+    floorId: string,
+    staffAuthUserId: string,
+  ) {
     const body = await parseBody(req, createRouteEdgeSchema);
-    const edge = await tourRouteService.createEdgeInFloor(
+    const edge = await tourRouteService.createEdge(
+      tourId,
       floorId,
       body,
       getAuditContext(req, staffAuthUserId),
@@ -73,13 +87,14 @@ export const tourRouteController = {
 
   async updateEdge(
     req: NextRequest,
-    _tourId: string,
+    tourId: string,
     floorId: string,
     edgeId: string,
     staffAuthUserId: string,
   ) {
     const body = await parseBody(req, updateRouteEdgeSchema);
-    const edge = await tourRouteService.updateEdgeInFloor(
+    const edge = await tourRouteService.updateEdge(
+      tourId,
       floorId,
       edgeId,
       body,
@@ -90,12 +105,13 @@ export const tourRouteController = {
 
   async deleteEdge(
     req: NextRequest,
-    _tourId: string,
+    tourId: string,
     floorId: string,
     edgeId: string,
     staffAuthUserId: string,
   ) {
-    await tourRouteService.deleteEdgeInFloor(
+    await tourRouteService.deleteEdge(
+      tourId,
       floorId,
       edgeId,
       getAuditContext(req, staffAuthUserId),
@@ -103,8 +119,8 @@ export const tourRouteController = {
     return success({ deleted: true });
   },
 
-  parseTourParams(params: Record<string, string | string[] | undefined>) {
-    return parseParams(params, tourIdParamSchema);
+  parseFloorParams(params: Record<string, string | string[] | undefined>) {
+    return parseParams(params, floorIdParamSchema);
   },
 
   parseEdgeParams(params: Record<string, string | string[] | undefined>) {

@@ -59,36 +59,38 @@ export function normalizeSpotTranslations(
 
 export const createSpotSchema = z
   .object({
+    // Which floor the spot sits on. Omitted means the tour's lowest floor.
+    floorId: z.string().trim().min(1).optional(),
     sortOrder: z.number().int().min(0),
     latitude: z.number().nullable().optional(),
     longitude: z.number().nullable().optional(),
-    floor: z.number().int().min(0).optional(),
     includedInQuickTour: z.boolean().optional(),
     translations: audienceLanguageTranslationsSchema,
   })
   .transform((value) => ({
+    floorId: value.floorId,
     sortOrder: value.sortOrder,
     latitude: value.latitude ?? null,
     longitude: value.longitude ?? null,
-    floor: value.floor ?? 0,
     includedInQuickTour: value.includedInQuickTour ?? true,
     translations: normalizeSpotTranslations(value.translations),
   }));
 
 export const updateSpotSchema = z
   .object({
+    // Setting this moves the spot to another floor of the same tour.
+    floorId: z.string().trim().min(1).optional(),
     sortOrder: z.number().int().min(0).optional(),
     latitude: z.number().nullable().optional(),
     longitude: z.number().nullable().optional(),
-    floor: z.number().int().min(0).optional(),
     includedInQuickTour: z.boolean().optional(),
     translations: audienceLanguageTranslationsSchema.optional(),
   })
   .transform((value) => ({
+    floorId: value.floorId,
     sortOrder: value.sortOrder,
     latitude: value.latitude,
     longitude: value.longitude,
-    floor: value.floor,
     includedInQuickTour: value.includedInQuickTour,
     translations: value.translations
       ? normalizeSpotTranslations(value.translations)

@@ -47,11 +47,11 @@ export type SpotFaq = {
 
 export type Spot = {
   id: string;
-  tourId: string;
+  tourId: string | null;
+  floorId: string;
   sortOrder: number;
   latitude: number | null;
   longitude: number | null;
-  floor: number;
   includedInQuickTour: boolean;
   translations: SpotTranslation[];
   medias: SpotMedia[];
@@ -72,6 +72,8 @@ export type AudienceLanguageTranslations<T> = Record<
 >;
 
 export type CreateSpotPayload = {
+  // Omit to place the spot on the tour's lowest floor.
+  floorId?: string;
   sortOrder: number;
   latitude?: number | null;
   longitude?: number | null;

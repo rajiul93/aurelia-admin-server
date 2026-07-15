@@ -10,6 +10,7 @@ export const tourIncludeRelations = {
   floors: {
     orderBy: { sortOrder: "asc" as const },
     include: {
+      coverMedia: true,
       translations: {
         orderBy: { language: "asc" as const },
       },
@@ -146,9 +147,13 @@ export const tourRepository = {
     return prisma.tour.delete({ where: { id } });
   },
 
+  // The floor the admin API falls back to when a request doesn't name one.
+  // Prefers Floor 1, but any tour whose floors are numbered differently (e.g. a
+  // ground floor at 0) still resolves to its lowest floor rather than nothing.
   getFloor1ByTourId(tourId: string) {
     return prisma.floor.findFirst({
-      where: { tourId, floorNo: 1 },
+      where: { tourId },
+      orderBy: { floorNo: "asc" },
     });
   },
 };

@@ -1,35 +1,87 @@
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: "/api/v1",
-});
+import { apiClient } from "@/lib/axios";
+import type { ApiSuccess } from "@/types/api";
+import type {
+  CreateFloorPayload,
+  CreateTransitionPointPayload,
+  Floor,
+  TransitionPoint,
+  UpdateFloorPayload,
+  UpdateTransitionPointPayload,
+} from "@/types/floor";
 
 export const floorsService = {
-  async listByTour(tourId: string) {
-    const response = await api.get(`/tours/${tourId}/floors`);
-    return response.data;
+  list(tourId: string) {
+    return apiClient
+      .get<ApiSuccess<Floor[]>>(`/tours/${tourId}/floors`)
+      .then((response) => response.data);
   },
 
-  async getById(tourId: string, floorId: string) {
-    const response = await api.get(`/tours/${tourId}/floors/${floorId}`);
-    return response.data;
+  getById(tourId: string, floorId: string) {
+    return apiClient
+      .get<ApiSuccess<Floor>>(`/tours/${tourId}/floors/${floorId}`)
+      .then((response) => response.data);
   },
 
-  async create(tourId: string, data: { floorNo: number; mapTileUrl?: string }) {
-    const response = await api.post(`/tours/${tourId}/floors`, data);
-    return response.data;
+  create(tourId: string, payload: CreateFloorPayload) {
+    return apiClient
+      .post<ApiSuccess<Floor>>(`/tours/${tourId}/floors`, payload)
+      .then((response) => response.data);
   },
 
-  async update(
+  update(tourId: string, floorId: string, payload: UpdateFloorPayload) {
+    return apiClient
+      .patch<ApiSuccess<Floor>>(`/tours/${tourId}/floors/${floorId}`, payload)
+      .then((response) => response.data);
+  },
+
+  remove(tourId: string, floorId: string) {
+    return apiClient
+      .delete<ApiSuccess<{ deleted: boolean }>>(
+        `/tours/${tourId}/floors/${floorId}`,
+      )
+      .then((response) => response.data);
+  },
+
+  listTransitionPoints(tourId: string, floorId: string) {
+    return apiClient
+      .get<ApiSuccess<TransitionPoint[]>>(
+        `/tours/${tourId}/floors/${floorId}/transition-points`,
+      )
+      .then((response) => response.data);
+  },
+
+  createTransitionPoint(
     tourId: string,
     floorId: string,
-    data: { floorNo?: number; mapTileUrl?: string | null },
+    payload: CreateTransitionPointPayload,
   ) {
-    const response = await api.patch(`/tours/${tourId}/floors/${floorId}`, data);
-    return response.data;
+    return apiClient
+      .post<ApiSuccess<TransitionPoint>>(
+        `/tours/${tourId}/floors/${floorId}/transition-points`,
+        payload,
+      )
+      .then((response) => response.data);
   },
 
-  async delete(tourId: string, floorId: string) {
-    await api.delete(`/tours/${tourId}/floors/${floorId}`);
+  updateTransitionPoint(
+    tourId: string,
+    floorId: string,
+    pointId: string,
+    payload: UpdateTransitionPointPayload,
+  ) {
+    return apiClient
+      .patch<ApiSuccess<TransitionPoint>>(
+        `/tours/${tourId}/floors/${floorId}/transition-points/${pointId}`,
+        payload,
+      )
+      .then((response) => response.data);
+  },
+
+  removeTransitionPoint(tourId: string, floorId: string, pointId: string) {
+    return apiClient
+      .delete<ApiSuccess<{ deleted: boolean }>>(
+        `/tours/${tourId}/floors/${floorId}/transition-points/${pointId}`,
+      )
+      .then((response) => response.data);
   },
 };

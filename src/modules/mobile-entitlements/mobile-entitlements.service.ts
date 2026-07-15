@@ -32,10 +32,12 @@ export const mobileEntitlementsService = {
 
     if (!access) {
       return {
+        phone: session.phone,
         email: session.email,
         status: "REVOKED",
+        activatedAt: session.activatedAt.toISOString(),
         expiresAt: session.expiresAt.toISOString(),
-        ticketCount: session.ticketCount,
+        maxDevices: session.maxDevices,
         activeDeviceCount: 0,
         seatsRemaining: 0,
         allowSubscriptionFeatures: false,
@@ -46,12 +48,14 @@ export const mobileEntitlementsService = {
     const activeDeviceCount = access.deviceSessions.length;
 
     return {
+      phone: access.phone,
       email: access.email,
       status: access.status,
+      activatedAt: access.activatedAt.toISOString(),
       expiresAt: access.expiresAt.toISOString(),
-      ticketCount: access.ticketCount,
+      maxDevices: access.maxDevices,
       activeDeviceCount,
-      seatsRemaining: Math.max(access.ticketCount - activeDeviceCount, 0),
+      seatsRemaining: Math.max(access.maxDevices - activeDeviceCount, 0),
       allowSubscriptionFeatures: access.allowSubscriptionFeatures,
       tours: access.tours
         .filter((entry) => entry.tour.publishStatus === "PUBLISHED")

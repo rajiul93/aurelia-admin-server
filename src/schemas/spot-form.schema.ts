@@ -38,6 +38,7 @@ const audienceLanguageTranslationsSchema = z.object(
 );
 
 export const spotFormSchema = z.object({
+  floorId: z.string().min(1, "Floor is required"),
   sortOrder: sortOrderSchema,
   latitude: z.string(),
   longitude: z.string(),

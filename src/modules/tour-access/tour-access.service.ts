@@ -1,5 +1,7 @@
-import { NotFoundError, ValidationError } from "@/lib/api/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/api/errors";
 import { auditService, type AuditContext } from "@/lib/audit";
+import { hashPin } from "@/lib/mobile/pin";
+import { normalizePhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 import { tourRepository } from "@/modules/tour/tour.repository";
 import {
@@ -21,12 +23,15 @@ function mapAuditAccess(
     return null;
   }
 
+  // Never the pinHash: audit rows are read by staff and exported.
   return {
     id: access.id,
+    phone: access.phone,
     email: access.email,
+    activatedAt: access.activatedAt.toISOString(),
     expiresAt: access.expiresAt.toISOString(),
     status: access.status,
-    ticketCount: access.ticketCount,
+    maxDevices: access.maxDevices,
     allowSubscriptionFeatures: access.allowSubscriptionFeatures,
     notes: access.notes,
     tourIds: access.tours.map((entry) => entry.tourId),
@@ -76,11 +81,22 @@ export const tourAccessService = {
     audit?: AuditContext,
   ) {
     const tourIds = await assertTourIds(input.tourIds);
+    const phone = normalizePhone(input.phone);
+
+    const existing = await prisma.tourAccess.findUnique({ where: { phone } });
+    if (existing) {
+      throw new ConflictError(
+        "A tour access already exists for this phone number.",
+      );
+    }
 
     const access = await tourAccessRepository.create({
-      email: input.email.toLowerCase(),
+      phone,
+      pinHash: await hashPin(input.pin),
+      email: input.email?.toLowerCase(),
+      activatedAt: input.activatedAt,
       expiresAt: input.expiresAt,
-      ticketCount: input.ticketCount,
+      maxDevices: input.maxDevices,
       allowSubscriptionFeatures: input.allowSubscriptionFeatures,
       notes: input.notes,
       activatedById: staffAuthUserId,
@@ -110,21 +126,49 @@ export const tourAccessService = {
       await assertTourIds(input.tourIds);
     }
 
-    if (input.ticketCount !== undefined) {
+    if (input.maxDevices !== undefined) {
       const activeCount = existing.deviceSessions.length;
-      if (input.ticketCount < activeCount) {
+      if (input.maxDevices < activeCount) {
         throw new ValidationError(
-          `Max concurrent sessions cannot be lower than active sessions (${activeCount}). Revoke devices first.`,
+          `Device limit cannot be lower than the ${activeCount} device${
+            activeCount === 1 ? "" : "s"
+          } already active. Remove a device first.`,
         );
       }
     }
 
+    const phone =
+      input.phone !== undefined ? normalizePhone(input.phone) : undefined;
+
+    if (phone !== undefined && phone !== existing.phone) {
+      const clash = await prisma.tourAccess.findUnique({ where: { phone } });
+      if (clash) {
+        throw new ConflictError(
+          "A tour access already exists for this phone number.",
+        );
+      }
+    }
+
+    // A window change can make a locked-out buyer wait needlessly; a new PIN
+    // must clear the lockout, or the admin's fix would not take effect for 15
+    // minutes.
+    const resetLockout =
+      input.pin !== undefined
+        ? { failedPinAttempts: 0, pinLockedUntil: null }
+        : {};
+
     const access = await tourAccessRepository.update(id, {
+      ...(phone !== undefined ? { phone } : {}),
+      ...(input.pin !== undefined ? { pinHash: await hashPin(input.pin) } : {}),
+      ...resetLockout,
       ...(input.email !== undefined
-        ? { email: input.email.toLowerCase() }
+        ? { email: input.email ? input.email.toLowerCase() : null }
+        : {}),
+      ...(input.activatedAt !== undefined
+        ? { activatedAt: input.activatedAt }
         : {}),
       ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}),
-      ...(input.ticketCount !== undefined ? { ticketCount: input.ticketCount } : {}),
+      ...(input.maxDevices !== undefined ? { maxDevices: input.maxDevices } : {}),
       ...(input.allowSubscriptionFeatures !== undefined
         ? { allowSubscriptionFeatures: input.allowSubscriptionFeatures }
         : {}),

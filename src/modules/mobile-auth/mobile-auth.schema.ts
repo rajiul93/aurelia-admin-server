@@ -15,10 +15,18 @@ export const otpVerifySchema = z.object({
   platform: z.enum(["ios", "android"]),
 });
 
-export const deviceRevokeSchema = z.object({
-  deviceId: z.string().trim().min(8).max(200).optional(),
+/** Phone + PIN unlock. The PIN is what the admin sent the buyer by hand. */
+export const unlockSchema = z.object({
+  phone: z.string().trim().min(6, "Phone number is required").max(30),
+  pin: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, "PIN must be 4 digits"),
+  deviceId: z.string().trim().min(8).max(200),
+  deviceName: z.string().trim().max(120).optional(),
+  platform: z.enum(["ios", "android"]),
 });
 
 export type OtpRequestInput = z.output<typeof otpRequestSchema>;
 export type OtpVerifyInput = z.output<typeof otpVerifySchema>;
-export type DeviceRevokeInput = z.output<typeof deviceRevokeSchema>;
+export type UnlockInput = z.output<typeof unlockSchema>;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,13 +9,20 @@ import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormInput, FormQuill, FormTextarea } from "@/components/form";
+import {
+  Form,
+  FormInput,
+  FormQuill,
+  FormSelect,
+  FormTextarea,
+} from "@/components/form";
 import { AudienceTabs } from "@/components/i18n/audience-tabs";
 import { LanguageTabs } from "@/components/i18n/language-tabs";
 import {
   useCreateSpot,
   useUpdateSpot,
 } from "@/hooks/mutations/use-spot-mutations";
+import { useFloors } from "@/hooks/queries/use-floors";
 import {
   AUDIENCE_TYPES,
   AUDIENCE_LABELS,
@@ -44,8 +51,9 @@ type SpotFormProps = {
   defaultValues?: Spot;
 };
 
-function toFormValues(spot?: Spot): SpotFormInput {
+function toFormValues(spot?: Spot, defaultFloorId = ""): SpotFormInput {
   return {
+    floorId: spot?.floorId ?? defaultFloorId,
     sortOrder: spot?.sortOrder ?? 0,
     latitude: spot?.latitude?.toString() ?? "",
     longitude: spot?.longitude?.toString() ?? "",
@@ -82,21 +90,45 @@ export function SpotForm({ tourId, mode, defaultValues }: SpotFormProps) {
   const isEdit = mode === "edit";
   const createSpot = useCreateSpot(tourId);
   const updateSpot = useUpdateSpot(tourId);
+  const { data: floorsResponse } = useFloors(tourId);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [activeAudience, setActiveAudience] =
     useState<AudienceType>(DEFAULT_AUDIENCE);
   const [activeLanguage, setActiveLanguage] =
     useState<AppLanguage>(DEFAULT_LANGUAGE);
 
+  const floors = useMemo(
+    () => floorsResponse?.data ?? [],
+    [floorsResponse?.data],
+  );
+  const defaultFloorId = floors[0]?.id ?? "";
+
   const form = useForm<SpotFormInput>({
     resolver: zodResolver(spotFormSchema),
-    defaultValues: toFormValues(defaultValues),
+    defaultValues: toFormValues(defaultValues, defaultFloorId),
+  });
+
+  // Floors arrive after the first render, so a new spot's floor defaults once they land.
+  useEffect(() => {
+    if (!isEdit && !form.getValues("floorId") && defaultFloorId) {
+      form.setValue("floorId", defaultFloorId);
+    }
+  }, [defaultFloorId, form, isEdit]);
+
+  const floorOptions = floors.map((floor) => {
+    const name = getPreferredAudienceTranslation(floor.translations)?.name;
+
+    return {
+      label: name ? `Floor ${floor.floorNo} — ${name}` : `Floor ${floor.floorNo}`,
+      value: floor.id,
+    };
   });
 
   async function handleSubmit(values: SpotFormInput) {
     setSubmitError(null);
 
     const payload: CreateSpotPayload = {
+      floorId: values.floorId,
       sortOrder: values.sortOrder,
       latitude: parseCoordinate(values.latitude),
       longitude: parseCoordinate(values.longitude),
@@ -142,8 +174,42 @@ export function SpotForm({ tourId, mode, defaultValues }: SpotFormProps) {
           <CardTitle>{isEdit ? spotTitle ?? "Edit spot" : "New spot"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <FormInput name="sortOrder" label="Order" type="number" disabled={isSubmitting} />
+          {floors.length === 0 ? (
+            <Alert>
+              <AlertDescription>
+                This tour has no floors yet.{" "}
+                <Link
+                  href={`/tours/${tourId}/floors`}
+                  className="font-medium underline"
+                >
+                  Create a floor
+                </Link>{" "}
+                before adding spots.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormSelect
+              name="floorId"
+              label="Floor"
+              options={floorOptions}
+              disabled={isSubmitting || floors.length === 0}
+              description={
+                isEdit
+                  ? "Changing this moves the spot to another floor."
+                  : "The floor this spot sits on."
+              }
+            />
+            <FormInput
+              name="sortOrder"
+              label="Order"
+              type="number"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormInput name="latitude" label="Latitude" disabled={isSubmitting} />
             <FormInput name="longitude" label="Longitude" disabled={isSubmitting} />
           </div>

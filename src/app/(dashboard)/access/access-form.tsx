@@ -47,13 +47,23 @@ function toDatetimeLocalValue(iso?: string) {
 
 function toFormValues(access?: TourAccess): TourAccessFormInput {
   return {
+    phone: access?.phone ?? "",
+    // Write-only: an existing PIN is never sent to the browser, so the field
+    // starts blank on edit and blank means "keep the current PIN".
+    pin: "",
     email: access?.email ?? "",
+    activatedAt: toDatetimeLocalValue(access?.activatedAt ?? new Date().toISOString()),
     expiresAt: toDatetimeLocalValue(access?.expiresAt),
-    ticketCount: access?.ticketCount ?? 1,
+    maxDevices: access?.maxDevices ?? 1,
     allowSubscriptionFeatures: access?.allowSubscriptionFeatures ?? false,
     notes: access?.notes ?? "",
     tourIds: access?.tours.map((tour) => tour.id) ?? [],
   };
+}
+
+/** Admins left to their own devices pick 1234. */
+function randomPin() {
+  return String(Math.floor(Math.random() * 10_000)).padStart(4, "0");
 }
 
 export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
@@ -75,6 +85,11 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
   const selectedTourIds =
     useWatch({ control: form.control, name: "tourIds" }) ?? [];
   const isPending = createAccess.isPending || updateAccess.isPending;
+  const isRevoked = defaultValues?.status === "REVOKED";
+  const isLockedOut = Boolean(
+    defaultValues?.pinLockedUntil &&
+      new Date(defaultValues.pinLockedUntil) > new Date(),
+  );
 
   function toggleTour(tourId: string) {
     const current = form.getValues("tourIds");
@@ -88,13 +103,22 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
   async function onSubmit(values: TourAccessFormInput) {
     setSubmitError(null);
 
+    if (mode === "create" && !values.pin) {
+      form.setError("pin", { message: "Set a 4-digit PIN for the buyer" });
+      return;
+    }
+
     const payload = {
-      email: values.email,
+      phone: values.phone,
+      email: values.email.trim() ? values.email.trim() : undefined,
+      activatedAt: new Date(values.activatedAt).toISOString(),
       expiresAt: new Date(values.expiresAt).toISOString(),
-      ticketCount: values.ticketCount,
+      maxDevices: values.maxDevices,
       allowSubscriptionFeatures: values.allowSubscriptionFeatures,
       notes: values.notes.trim() ? values.notes.trim() : undefined,
       tourIds: values.tourIds,
+      // Only send a PIN when one was typed — otherwise the existing one stands.
+      ...(values.pin ? { pin: values.pin } : {}),
     };
 
     try {
@@ -107,7 +131,10 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
         return;
       }
 
-      const result = await createAccess.mutateAsync(payload);
+      const result = await createAccess.mutateAsync({
+        ...payload,
+        pin: values.pin,
+      });
       router.push(`/access/${result.data.id}/edit`);
     } catch (error) {
       setSubmitError(
@@ -124,36 +151,98 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
         </Alert>
       ) : null}
 
+      {isLockedOut ? (
+        <Alert>
+          <AlertDescription>
+            This buyer is locked out after too many wrong PIN attempts until{" "}
+            {new Date(defaultValues!.pinLockedUntil!).toLocaleString()}. Setting a
+            new PIN below unlocks them immediately.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Buyer details</CardTitle>
           <CardDescription>
-            Website buyers sign in with this email and OTP. Access expires on the
-            selected date. Max concurrent sessions limits how many devices can be
-            signed in at the same time.
+            The buyer unlocks the tour in the app with this phone number and PIN —
+            send both to them yourself (SMS, WhatsApp, Messenger). Access works
+            only between the activation and expiry dates.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <FormInput
-            name="email"
-            label="Email"
-            type="email"
-            placeholder="buyer@example.com"
-            disabled={mode === "edit" && defaultValues?.status === "REVOKED"}
+            name="phone"
+            label="Phone number"
+            type="tel"
+            placeholder="+880 1712 345678"
+            disabled={isRevoked}
+          />
+          <FormField
+            name="pin"
+            label={mode === "create" ? "4-digit PIN" : "New PIN (optional)"}
+          >
+            {(field) => (
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <input
+                    className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder={
+                      mode === "create" ? "0417" : "Leave blank to keep current"
+                    }
+                    value={String(field.value ?? "")}
+                    onChange={(event) =>
+                      field.onChange(event.target.value.replace(/\D/g, ""))
+                    }
+                    disabled={isRevoked}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isRevoked}
+                    onClick={() =>
+                      form.setValue("pin", randomPin(), { shouldValidate: true })
+                    }
+                  >
+                    Generate
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {mode === "create"
+                    ? "Write this down now — it is hashed on save and can never be read back."
+                    : "Blank leaves the current PIN untouched. A new PIN also clears any lockout."}
+                </p>
+              </div>
+            )}
+          </FormField>
+          <FormInput
+            name="activatedAt"
+            label="Activation date"
+            type="datetime-local"
+            disabled={isRevoked}
           />
           <FormInput
             name="expiresAt"
-            label="Expires at"
+            label="Expiry date"
             type="datetime-local"
-            disabled={defaultValues?.status === "REVOKED"}
+            disabled={isRevoked}
           />
           <FormInput
-            name="ticketCount"
-            label="Max concurrent sessions"
+            name="maxDevices"
+            label="Maximum devices"
             type="number"
             min={1}
             max={20}
-            disabled={defaultValues?.status === "REVOKED"}
+            disabled={isRevoked}
+          />
+          <FormInput
+            name="email"
+            label="Email (optional)"
+            type="email"
+            placeholder="Only for Stripe receipts"
+            disabled={isRevoked}
           />
           <FormField name="allowSubscriptionFeatures" label="Subscription features">
             {(field) => (
@@ -162,7 +251,7 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
                   type="checkbox"
                   checked={Boolean(field.value)}
                   onChange={(event) => field.onChange(event.target.checked)}
-                  disabled={defaultValues?.status === "REVOKED"}
+                  disabled={isRevoked}
                 />
                 Allow subscription-style features
               </label>
@@ -174,7 +263,7 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
               label="Notes"
               placeholder="Purchase reference, support notes, etc."
               rows={3}
-              disabled={defaultValues?.status === "REVOKED"}
+              disabled={isRevoked}
             />
           </div>
         </CardContent>
@@ -208,8 +297,7 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-lg border p-3",
                   checked ? "border-primary/50 bg-primary/5" : "border-border",
-                  defaultValues?.status === "REVOKED" &&
-                    "cursor-not-allowed opacity-60",
+                  isRevoked && "cursor-not-allowed opacity-60",
                 )}
               >
                 <input

@@ -79,7 +79,9 @@ export const queryKeys = {
   tourRoute: {
     all: ["tour-route"] as const,
     details: () => [...queryKeys.tourRoute.all, "detail"] as const,
-    detail: (tourId: string) =>
+    detail: (tourId: string, floorId: string) =>
+      [...queryKeys.tourRoute.details(), tourId, floorId] as const,
+    byTour: (tourId: string) =>
       [...queryKeys.tourRoute.details(), tourId] as const,
   },
   aiKnowledge: {

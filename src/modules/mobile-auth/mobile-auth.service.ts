@@ -8,15 +8,17 @@ import {
 } from "@/lib/api/errors";
 import { isOtpEmailConfigured } from "@/lib/email/config";
 import { sendOtpEmail } from "@/lib/email/send-otp-email";
+import { verifyPin } from "@/lib/mobile/pin";
 import {
   createSessionToken,
   hashSessionToken,
 } from "@/lib/mobile/session-token";
+import { normalizePhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 import type {
-  DeviceRevokeInput,
   OtpRequestInput,
   OtpVerifyInput,
+  UnlockInput,
 } from "./mobile-auth.schema";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -60,27 +62,6 @@ async function findAccessByEmail(email: string) {
   });
 }
 
-/**
- * A brand-new email has no admin-granted TourAccess yet. Rather than run a
- * separate signup/identity system, we auto-provision a minimal "shell"
- * access record (already-expired, one seat) so the email can sign in,
- * land on the entitlements-inactive lock screen, and self-serve a
- * subscription purchase — which then upgrades this same row.
- */
-async function provisionShellAccess(email: string) {
-  return prisma.tourAccess.create({
-    data: {
-      email,
-      expiresAt: new Date(0),
-      status: "ACTIVE",
-      ticketCount: 1,
-      allowSubscriptionFeatures: false,
-      source: "SELF_SERVICE",
-    },
-    include: ACCESS_INCLUDE,
-  });
-}
-
 const OTP_REQUEST_COOLDOWN_MS = 45 * 1000;
 
 async function assertNotThrottled(email: string) {
@@ -101,14 +82,213 @@ async function assertNotThrottled(email: string) {
   }
 }
 
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCK_MS = 15 * 60 * 1000;
+
+/**
+ * Deliberately identical for "no such phone" and "wrong PIN". Telling them apart
+ * turns the unlock endpoint into an oracle for which phone numbers are buyers.
+ */
+const INVALID_CREDENTIALS = "Invalid phone number or PIN";
+
+/**
+ * The session a device gets after a successful unlock. Shared with verifyOtp so
+ * both entry points hand the app the same thing.
+ */
+async function issueDeviceSession(
+  access: { id: string; maxDevices: number },
+  activeSessions: { deviceId: string }[],
+  input: {
+    deviceId: string;
+    deviceName?: string;
+    platform: "ios" | "android";
+  },
+) {
+  const sessionToken = createSessionToken();
+  const sessionTokenHash = hashSessionToken(sessionToken);
+
+  const session = await prisma.deviceSession.upsert({
+    where: {
+      tourAccessId_deviceId: {
+        tourAccessId: access.id,
+        deviceId: input.deviceId,
+      },
+    },
+    create: {
+      tourAccessId: access.id,
+      deviceId: input.deviceId,
+      deviceName: input.deviceName,
+      platform: input.platform,
+      sessionTokenHash,
+    },
+    update: {
+      deviceName: input.deviceName,
+      platform: input.platform,
+      sessionTokenHash,
+      lastVerifiedAt: new Date(),
+      revokedAt: null,
+    },
+  });
+
+  await prisma.deviceRegistration.upsert({
+    where: { deviceId: input.deviceId },
+    create: {
+      deviceId: input.deviceId,
+      deviceName: input.deviceName,
+      platform: input.platform,
+      tourAccessId: access.id,
+    },
+    update: {
+      deviceName: input.deviceName,
+      platform: input.platform,
+      tourAccessId: access.id,
+      revokedAt: null,
+      lastActiveAt: new Date(),
+    },
+  });
+
+  const alreadyCounted = activeSessions.some(
+    (entry) => entry.deviceId === input.deviceId,
+  );
+
+  return {
+    sessionToken,
+    session,
+    activeDeviceCount: alreadyCounted
+      ? activeSessions.length
+      : activeSessions.length + 1,
+  };
+}
+
 export const mobileAuthService = {
+  /**
+   * The buyer's only way in: the phone number and 4-digit PIN the admin set and
+   * sent them by hand. On success this device is registered against the grant and
+   * gets a session token, so the PIN is never needed again on this device.
+   */
+  async unlock(input: UnlockInput) {
+    const phone = normalizePhone(input.phone);
+
+    const access = await prisma.tourAccess.findUnique({
+      where: { phone },
+      include: ACCESS_INCLUDE,
+    });
+
+    if (!access) {
+      throw new UnauthorizedError(INVALID_CREDENTIALS);
+    }
+
+    const now = new Date();
+
+    if (access.pinLockedUntil && access.pinLockedUntil > now) {
+      const retryAfter = Math.ceil(
+        (access.pinLockedUntil.getTime() - now.getTime()) / 1000,
+      );
+      throw new TooManyRequestsError(
+        "Too many incorrect PIN attempts. Try again later.",
+        retryAfter,
+      );
+    }
+
+    if (!(await verifyPin(input.pin, access.pinHash))) {
+      const attempts = access.failedPinAttempts + 1;
+      const nowLocked = attempts >= MAX_PIN_ATTEMPTS;
+
+      await prisma.tourAccess.update({
+        where: { id: access.id },
+        data: nowLocked
+          ? {
+              failedPinAttempts: 0,
+              pinLockedUntil: new Date(now.getTime() + PIN_LOCK_MS),
+            }
+          : { failedPinAttempts: attempts },
+      });
+
+      if (nowLocked) {
+        throw new TooManyRequestsError(
+          "Too many incorrect PIN attempts. Try again later.",
+          PIN_LOCK_MS / 1000,
+        );
+      }
+
+      throw new UnauthorizedError(INVALID_CREDENTIALS);
+    }
+
+    // Only past the PIN check do we say anything about the state of the grant —
+    // before it, every failure has to look the same to a stranger.
+    if (access.status === "REVOKED") {
+      throw new ForbiddenError("This access has been revoked. Contact support.");
+    }
+
+    if (access.activatedAt > now) {
+      throw new ForbiddenError(
+        `This tour unlocks on ${access.activatedAt.toISOString().slice(0, 10)}.`,
+      );
+    }
+
+    if (access.status === "EXPIRED" || access.expiresAt < now) {
+      throw new ForbiddenError(
+        "This access has expired. Contact support to extend it.",
+      );
+    }
+
+    const activeSessions = access.deviceSessions;
+    const knownDevice = activeSessions.some(
+      (session) => session.deviceId === input.deviceId,
+    );
+
+    // Admin-controlled: the buyer cannot free a seat themselves.
+    if (!knownDevice && activeSessions.length >= access.maxDevices) {
+      throw new ForbiddenError(
+        `This account is already active on ${access.maxDevices} device${
+          access.maxDevices === 1 ? "" : "s"
+        }. Contact support to remove one.`,
+      );
+    }
+
+    const { sessionToken, session, activeDeviceCount } =
+      await issueDeviceSession(access, activeSessions, input);
+
+    if (access.failedPinAttempts > 0 || access.pinLockedUntil) {
+      await prisma.tourAccess.update({
+        where: { id: access.id },
+        data: { failedPinAttempts: 0, pinLockedUntil: null },
+      });
+    }
+
+    return {
+      sessionToken,
+      sessionId: session.id,
+      deviceId: session.deviceId,
+      phone: access.phone,
+      activatedAt: access.activatedAt.toISOString(),
+      expiresAt: access.expiresAt.toISOString(),
+      maxDevices: access.maxDevices,
+      activeDeviceCount,
+      tours: access.tours
+        .filter((entry) => entry.tour.publishStatus === "PUBLISHED")
+        .map((entry) => ({
+          id: entry.tour.id,
+          slug: entry.tour.slug,
+        })),
+    };
+  },
+
+  /**
+   * Legacy email sign-in, kept for grants that carry an email (self-service
+   * Stripe buyers). It can no longer auto-provision a grant for an unknown
+   * email: a grant now needs a phone and a PIN, which only the admin can set.
+   */
   async requestOtp(input: OtpRequestInput) {
     const email = normalizeEmail(input.email);
 
     await assertNotThrottled(email);
 
-    const access =
-      (await findAccessByEmail(email)) ?? (await provisionShellAccess(email));
+    const access = await findAccessByEmail(email);
+
+    if (!access) {
+      throw new NotFoundError("No tour access found for this email.");
+    }
 
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_TTL_MS);
@@ -211,72 +391,24 @@ export const mobileAuthService = {
     }
 
     const activeSessions = access.deviceSessions;
-    const existingActiveForDevice = activeSessions.find(
+    const knownDevice = activeSessions.some(
       (session) => session.deviceId === input.deviceId,
     );
 
-    if (
-      !existingActiveForDevice &&
-      activeSessions.length >= access.ticketCount
-    ) {
+    if (!knownDevice && activeSessions.length >= access.maxDevices) {
       throw new ForbiddenError(
-        "Device seat limit reached. Revoke another device before signing in.",
+        `This account is already active on ${access.maxDevices} device${
+          access.maxDevices === 1 ? "" : "s"
+        }. Contact support to remove one.`,
       );
     }
 
-    const sessionToken = createSessionToken();
-    const sessionTokenHash = hashSessionToken(sessionToken);
-
-    const existingSession = await prisma.deviceSession.findUnique({
-      where: {
-        tourAccessId_deviceId: {
-          tourAccessId: access.id,
-          deviceId: input.deviceId,
-        },
-      },
-    });
-
-    const session = existingSession
-      ? await prisma.deviceSession.update({
-          where: { id: existingSession.id },
-          data: {
-            deviceName: input.deviceName,
-            platform: input.platform,
-            sessionTokenHash,
-            lastVerifiedAt: new Date(),
-            revokedAt: null,
-          },
-        })
-      : await prisma.deviceSession.create({
-          data: {
-            tourAccessId: access.id,
-            deviceId: input.deviceId,
-            deviceName: input.deviceName,
-            platform: input.platform,
-            sessionTokenHash,
-          },
-        });
+    const { sessionToken, session, activeDeviceCount } =
+      await issueDeviceSession(access, activeSessions, input);
 
     await prisma.otpChallenge.update({
       where: { id: challenge.id },
       data: { consumedAt: new Date() },
-    });
-
-    await prisma.deviceRegistration.upsert({
-      where: { deviceId: input.deviceId },
-      create: {
-        deviceId: input.deviceId,
-        deviceName: input.deviceName,
-        platform: input.platform,
-        tourAccessId: access.id,
-      },
-      update: {
-        deviceName: input.deviceName,
-        platform: input.platform,
-        tourAccessId: access.id,
-        revokedAt: null,
-        lastActiveAt: new Date(),
-      },
     });
 
     return {
@@ -285,10 +417,8 @@ export const mobileAuthService = {
       deviceId: session.deviceId,
       email: access.email,
       expiresAt: access.expiresAt.toISOString(),
-      ticketCount: access.ticketCount,
-      activeDeviceCount: existingActiveForDevice
-        ? activeSessions.length
-        : activeSessions.length + 1,
+      maxDevices: access.maxDevices,
+      activeDeviceCount,
       tours: access.tours
         .filter((entry) => entry.tour.publishStatus === "PUBLISHED")
         .map((entry) => ({
@@ -298,43 +428,9 @@ export const mobileAuthService = {
     };
   },
 
-  async revokeDevice(
-    session: {
-      sessionId: string;
-      tourAccessId: string;
-      deviceId: string;
-    },
-    input: DeviceRevokeInput,
-  ) {
-    const targetDeviceId = input.deviceId ?? session.deviceId;
-
-    const target = await prisma.deviceSession.findFirst({
-      where: {
-        tourAccessId: session.tourAccessId,
-        deviceId: targetDeviceId,
-        revokedAt: null,
-      },
-    });
-
-    if (!target) {
-      throw new NotFoundError("Active device session not found");
-    }
-
-    await prisma.deviceSession.update({
-      where: { id: target.id },
-      data: {
-        revokedAt: new Date(),
-        sessionTokenHash: null,
-      },
-    });
-
-    await prisma.deviceRegistration.updateMany({
-      where: { deviceId: targetDeviceId, tourAccessId: session.tourAccessId },
-      data: { revokedAt: new Date() },
-    });
-
-    return { revoked: true, deviceId: targetDeviceId };
-  },
+  // Devices are removed by the admin only (tour-access sessions endpoints); a
+  // buyer cannot free a seat themselves, or a single grant could be passed
+  // around indefinitely by swapping devices.
 
   async listDevices(tourAccessId: string) {
     const sessions = await prisma.deviceSession.findMany({

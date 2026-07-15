@@ -132,11 +132,18 @@ function buildContentPayloadV1(tour: TourWithBundleRelations) {
 function buildContentPayloadV2(tour: TourWithBundleRelations) {
   const tourDto = toTourDto(tour);
 
-  // V2: Per-floor routes with proper hierarchy
+  // V2: Per-floor routes with proper hierarchy. Cover image and the translated
+  // floor names ride along so the app can render a floor card offline.
   const floors = (tour.floors ?? []).map((floor) => ({
     id: floor.id,
     floorNo: floor.floorNo,
     mapTileUrl: floor.mapTileUrl,
+    coverUrl: floor.coverMedia?.url ?? null,
+    translations: floor.translations.map((translation) => ({
+      language: translation.language,
+      audience: translation.audience,
+      name: translation.name,
+    })),
     route: floor.route
       ? {
           id: floor.route.id,
@@ -250,6 +257,9 @@ function buildSearchDocuments(
 
   return documents;
 }
+
+export type BundleContentV1 = ReturnType<typeof buildContentPayloadV1>;
+export type BundleContentV2 = ReturnType<typeof buildContentPayloadV2>;
 
 function fileEntry(path: string, payload: unknown): BundleManifestFile {
   const body = toCanonicalJson(payload);

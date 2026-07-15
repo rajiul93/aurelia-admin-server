@@ -6,45 +6,54 @@ import type {
   UpdateRouteEdgePayload,
 } from "@/types/tour-route";
 
-function invalidateRoute(queryClient: ReturnType<typeof useQueryClient>, tourId: string) {
-  void queryClient.invalidateQueries({
-    queryKey: queryKeys.tourRoute.detail(tourId),
-  });
-  void queryClient.invalidateQueries({
-    queryKey: queryKeys.tours.detail(tourId),
-  });
+function useRouteInvalidation(tourId: string, floorId: string) {
+  const queryClient = useQueryClient();
+
+  return () => {
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.tourRoute.detail(tourId, floorId),
+    });
+    // Floor cards show the route's edge count.
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.floors.byTour(tourId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.tours.detail(tourId),
+    });
+  };
 }
 
-export function useGenerateTourRoute(tourId: string) {
-  const queryClient = useQueryClient();
+export function useGenerateTourRoute(tourId: string, floorId: string) {
+  const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
-    mutationFn: () => tourRouteService.generateFromSpots(tourId),
-    onSuccess: () => invalidateRoute(queryClient, tourId),
+    mutationFn: () => tourRouteService.generateFromSpots(tourId, floorId),
+    onSuccess: invalidate,
   });
 }
 
-export function useGenerateRouteFootprints(tourId: string) {
-  const queryClient = useQueryClient();
+export function useGenerateRouteFootprints(tourId: string, floorId: string) {
+  const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
-    mutationFn: () => tourRouteService.generateFootprintsFromOsrm(tourId),
-    onSuccess: () => invalidateRoute(queryClient, tourId),
+    mutationFn: () =>
+      tourRouteService.generateFootprintsFromOsrm(tourId, floorId),
+    onSuccess: invalidate,
   });
 }
 
-export function useCreateRouteEdge(tourId: string) {
-  const queryClient = useQueryClient();
+export function useCreateRouteEdge(tourId: string, floorId: string) {
+  const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
     mutationFn: (payload: CreateRouteEdgePayload) =>
-      tourRouteService.createEdge(tourId, payload),
-    onSuccess: () => invalidateRoute(queryClient, tourId),
+      tourRouteService.createEdge(tourId, floorId, payload),
+    onSuccess: invalidate,
   });
 }
 
-export function useUpdateRouteEdge(tourId: string) {
-  const queryClient = useQueryClient();
+export function useUpdateRouteEdge(tourId: string, floorId: string) {
+  const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
     mutationFn: ({
@@ -53,16 +62,17 @@ export function useUpdateRouteEdge(tourId: string) {
     }: {
       edgeId: string;
       payload: UpdateRouteEdgePayload;
-    }) => tourRouteService.updateEdge(tourId, edgeId, payload),
-    onSuccess: () => invalidateRoute(queryClient, tourId),
+    }) => tourRouteService.updateEdge(tourId, floorId, edgeId, payload),
+    onSuccess: invalidate,
   });
 }
 
-export function useDeleteRouteEdge(tourId: string) {
-  const queryClient = useQueryClient();
+export function useDeleteRouteEdge(tourId: string, floorId: string) {
+  const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
-    mutationFn: (edgeId: string) => tourRouteService.removeEdge(tourId, edgeId),
-    onSuccess: () => invalidateRoute(queryClient, tourId),
+    mutationFn: (edgeId: string) =>
+      tourRouteService.removeEdge(tourId, floorId, edgeId),
+    onSuccess: invalidate,
   });
 }

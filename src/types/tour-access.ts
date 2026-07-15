@@ -5,14 +5,18 @@ export type TourAccessStatus = TourAccessDto["status"];
 export type TourAccess = TourAccessDto;
 
 export type CreateTourAccessPayload = {
-  email: string;
+  phone: string;
+  pin: string;
+  email?: string;
+  activatedAt: string;
   expiresAt: string;
-  ticketCount: number;
+  maxDevices: number;
   allowSubscriptionFeatures: boolean;
   notes?: string;
   tourIds: string[];
 };
 
+/** `pin` here is a reset: send it only when the admin typed a new one. */
 export type UpdateTourAccessPayload = Partial<CreateTourAccessPayload> & {
   status?: "ACTIVE" | "REVOKED";
 };

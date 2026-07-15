@@ -10,13 +10,30 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/require-mobile";
 import {
-  deviceRevokeSchema,
   otpRequestSchema,
   otpVerifySchema,
+  unlockSchema,
 } from "./mobile-auth.schema";
 import { mobileAuthService } from "./mobile-auth.service";
 
 export const mobileAuthController = {
+  async unlock(req: NextRequest) {
+    await requireMobileRequest(req);
+    const body = await parseBody(req, unlockSchema);
+
+    // Coarse per-IP/phone throttle. The real brute-force guard is the per-account
+    // lockout in the service, which survives a restart and an IP change.
+    enforceRateLimit(req, {
+      scope: "unlock",
+      limit: 10,
+      windowMs: 15 * 60 * 1000,
+      identity: getRateLimitIdentity(req, body.phone),
+    });
+
+    const result = await mobileAuthService.unlock(body);
+    return success(result);
+  },
+
   async requestOtp(req: NextRequest) {
     await requireMobileRequest(req);
     const body = await parseBody(req, otpRequestSchema);
@@ -42,16 +59,6 @@ export const mobileAuthController = {
     });
 
     const result = await mobileAuthService.verifyOtp(body);
-    return success(result);
-  },
-
-  async revokeDevice(req: NextRequest) {
-    const session = await requireMobileSession(req);
-    const raw = await req.text();
-    const body = raw.trim()
-      ? deviceRevokeSchema.parse(JSON.parse(raw))
-      : {};
-    const result = await mobileAuthService.revokeDevice(session, body);
     return success(result);
   },
 

@@ -9,9 +9,11 @@ export type MobileSessionContext = {
   sessionId: string;
   deviceId: string;
   tourAccessId: string;
-  email: string;
-  ticketCount: number;
+  phone: string;
+  email: string | null;
+  maxDevices: number;
   allowSubscriptionFeatures: boolean;
+  activatedAt: Date;
   expiresAt: Date;
   accessStatus: string;
 };
@@ -62,9 +64,11 @@ function toSessionContext(
     sessionId: session.id,
     deviceId: session.deviceId,
     tourAccessId: access.id,
+    phone: access.phone,
     email: access.email,
-    ticketCount: access.ticketCount,
+    maxDevices: access.maxDevices,
     allowSubscriptionFeatures: access.allowSubscriptionFeatures,
+    activatedAt: access.activatedAt,
     expiresAt: access.expiresAt,
     accessStatus: access.status,
   };
@@ -75,13 +79,17 @@ export async function requireMobileSession(
 ): Promise<MobileSessionContext> {
   const session = await resolveSessionFromRequest(req);
   const access = session.tourAccess;
+  const now = Date.now();
 
-  const expired =
-    access.status === "REVOKED" ||
-    access.status === "EXPIRED" ||
-    access.expiresAt.getTime() < Date.now();
+  // The grant is only usable inside its window. A device that unlocked before
+  // expiry keeps its session token, so expiry has to be re-checked on every
+  // request, not just at unlock.
+  const usable =
+    access.status === "ACTIVE" &&
+    access.activatedAt.getTime() <= now &&
+    access.expiresAt.getTime() >= now;
 
-  if (expired) {
+  if (!usable) {
     throw new UnauthorizedError("Tour access is no longer active");
   }
 

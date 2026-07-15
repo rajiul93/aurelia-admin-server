@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes neonctl projects list --org-id org-solitary-cloud-66616404 --output json)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

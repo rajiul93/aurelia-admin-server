@@ -29,10 +29,10 @@ export const spotController = {
     return success(spots);
   },
 
-  async create(req: NextRequest, _tourId: string, floorId: string, staffAuthUserId: string) {
+  async create(req: NextRequest, tourId: string, staffAuthUserId: string) {
     const body = await parseBody(req, createSpotSchema);
     const spot = await spotService.create(
-      floorId,
+      tourId,
       body,
       getAuditContext(req, staffAuthUserId),
     );
