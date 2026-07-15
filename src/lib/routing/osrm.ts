@@ -3,11 +3,13 @@ type OsrmRouteResponse = {
     geometry?: {
       coordinates?: Array<[number, number]>;
     };
+    distance?: number;
+    duration?: number;
   }>;
   code?: string;
 };
 
-export async function fetchWalkingFootprint(
+async function requestOsrmRoute(
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
 ) {
@@ -31,8 +33,31 @@ export async function fetchWalkingFootprint(
     throw new Error("OSRM did not return a walking route for this edge");
   }
 
-  return payload.routes[0].geometry.coordinates.map(([lng, lat]) => ({
+  return payload.routes[0];
+}
+
+export async function fetchWalkingFootprint(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+) {
+  const route = await requestOsrmRoute(from, to);
+  return route.geometry!.coordinates!.map(([lng, lat]) => ({
     lat,
     lng,
   }));
+}
+
+export async function fetchWalkingRoute(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+) {
+  const route = await requestOsrmRoute(from, to);
+  return {
+    points: route.geometry!.coordinates!.map(([lng, lat]) => ({
+      lat,
+      lng,
+    })),
+    distanceM: route.distance ?? 0,
+    durationS: route.duration ?? 0,
+  };
 }

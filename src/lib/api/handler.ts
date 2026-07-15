@@ -74,7 +74,11 @@ export function withErrorHandler(handler: RouteHandler) {
         );
       }
 
-      console.error(err);
+      console.error("Unhandled error:", {
+        name: err instanceof Error ? err.name : "Unknown",
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       return error("INTERNAL_ERROR", "Something went wrong", { status: 500 });
     }
   };

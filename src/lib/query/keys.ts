@@ -158,4 +158,15 @@ export const queryKeys = {
       staffAuthUserId?: string;
     }) => [...queryKeys.auditLogs.lists(), params ?? {}] as const,
   },
+  hosts: {
+    all: ["hosts"] as const,
+    byTour: (tourId: string) =>
+      [...queryKeys.hosts.all, "by-tour", tourId] as const,
+    lists: () => [...queryKeys.hosts.all, "list"] as const,
+    list: (tourId: string, params?: ListParams) =>
+      [...queryKeys.hosts.lists(), tourId, params ?? {}] as const,
+    details: () => [...queryKeys.hosts.all, "detail"] as const,
+    detail: (tourId: string, hostId: string) =>
+      [...queryKeys.hosts.details(), tourId, hostId] as const,
+  },
 } as const;

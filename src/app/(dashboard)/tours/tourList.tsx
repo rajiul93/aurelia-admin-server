@@ -1,38 +1,38 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { Layers, Pencil, Plus, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import Link from 'next/link';
+import { Layers, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useDeleteTour } from "@/hooks/mutations/use-tour-mutations";
-import { useTours } from "@/hooks/queries/use-tours";
-import { APP_LANGUAGES, LANGUAGE_LABELS } from "@/lib/i18n/languages";
-import { getPreferredAudienceTranslation } from "@/lib/i18n/translations";
-import type { PublishStatus } from "@/types/tour";
+} from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useDeleteTour } from '@/hooks/mutations/use-tour-mutations';
+import { useTours } from '@/hooks/queries/use-tours';
+import { APP_LANGUAGES, LANGUAGE_LABELS } from '@/lib/i18n/languages';
+import { getPreferredAudienceTranslation } from '@/lib/i18n/translations';
+import type { PublishStatus } from '@/types/tour';
 
 const publishStatusLabels: Record<PublishStatus, string> = {
-  DRAFT: "Draft",
-  REVIEW: "Review",
-  PUBLISHED: "Published",
-  ARCHIVED: "Archived",
+  DRAFT: 'Draft',
+  REVIEW: 'Review',
+  PUBLISHED: 'Published',
+  ARCHIVED: 'Archived',
 };
 
 const publishStatusVariant: Record<
   PublishStatus,
-  "default" | "secondary" | "outline" | "destructive"
+  'default' | 'secondary' | 'outline' | 'destructive'
 > = {
-  DRAFT: "secondary",
-  REVIEW: "outline",
-  PUBLISHED: "default",
-  ARCHIVED: "destructive",
+  DRAFT: 'secondary',
+  REVIEW: 'outline',
+  PUBLISHED: 'default',
+  ARCHIVED: 'destructive',
 };
 
 export function TourList() {
@@ -46,7 +46,7 @@ export function TourList() {
 
   async function handleDelete(id: string) {
     const confirmed = window.confirm(
-      "Delete this tour? This action cannot be undone.",
+      'Delete this tour? This action cannot be undone.',
     );
 
     if (!confirmed) {
@@ -66,7 +66,12 @@ export function TourList() {
             Spanish, and French.
           </p>
         </div>
-        <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/tours/new" />}>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link href="/tours/new" />}
+        >
           <Plus className="size-4" />
           Create tour
         </Button>
@@ -91,9 +96,13 @@ export function TourList() {
             <p className="text-muted-foreground text-sm">
               {error instanceof Error
                 ? error.message
-                : "Something went wrong while fetching tours."}
+                : 'Something went wrong while fetching tours.'}
             </p>
-            <Button type="button" variant="outline" onClick={() => void refetch()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void refetch()}
+            >
               Try again
             </Button>
           </CardContent>
@@ -112,7 +121,7 @@ export function TourList() {
       ) : null}
 
       {!isLoading && !isError && tours.length > 0 ? (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-1 xl:grid-cols-2">
           {tours.map((tour) => {
             const preferred = getPreferredAudienceTranslation(
               tour.translations,
@@ -154,7 +163,7 @@ export function TourList() {
                     {preferred?.title || tour.slug}
                   </CardTitle>
                   <p className="text-muted-foreground line-clamp-3 text-sm">
-                    {preferred?.description || "No description yet."}
+                    {preferred?.description || 'No description yet.'}
                   </p>
                 </CardHeader>
 
@@ -206,6 +215,15 @@ export function TourList() {
                     render={<Link href={`/tours/${tour.id}/ai-knowledge`} />}
                   >
                     AI
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/tours/${tour.id}/hosts`} />}
+                  >
+                    <Users className="size-4" />
+                    Hosts
                   </Button>
                   <Button
                     type="button"

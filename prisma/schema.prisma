@@ -309,6 +309,7 @@ model Media {
   tourMedia     TourMedia[]
   tourMediaThumbnails TourMedia[] @relation("TourMediaThumbnail")
   appAssets     AppAsset[]
+  hosts         Host[]
 }
 
 model Tour {
@@ -327,6 +328,7 @@ model Tour {
   archivedAt         DateTime?
   translations       TourTranslation[]
   floors             Floor[]
+  hosts              Host[]
   spots              Spot[]  // Deprecated: access via floors
   media              TourMedia[]
   aiKnowledge        AiKnowledge[]
@@ -389,6 +391,46 @@ model FloorTransitionPoint {
 
   @@index([floorId])
   @@index([connectsToFloorId])
+}
+
+model Host {
+  id            String   @id @default(cuid())
+  tourId        String
+  tour          Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  name          String
+  role          String?
+
+  photoMediaId  String?
+  photoMedia    Media?   @relation(fields: [photoMediaId], references: [id], onDelete: SetNull)
+
+  latitude      Decimal  @db.Decimal(10, 7)
+  longitude     Decimal  @db.Decimal(10, 7)
+
+  availableFrom String?
+  availableTo   String?
+  isActive      Boolean  @default(true)
+
+  sortOrder     Int      @default(0)
+
+  translations  HostTranslation[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tourId])
+}
+
+model HostTranslation {
+  id       String   @id @default(cuid())
+  hostId   String
+  host     Host     @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  language Language
+  bio      String
+
+  @@unique([hostId, language])
+  @@index([hostId])
 }
 
 model TourBundle {
