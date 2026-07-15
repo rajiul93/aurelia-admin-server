@@ -137,7 +137,6 @@ function buildContentPayloadV2(tour: TourWithBundleRelations) {
   const floors = (tour.floors ?? []).map((floor) => ({
     id: floor.id,
     floorNo: floor.floorNo,
-    mapTileUrl: floor.mapTileUrl,
     coverUrl: floor.coverMedia?.url ?? null,
     translations: floor.translations.map((translation) => ({
       language: translation.language,

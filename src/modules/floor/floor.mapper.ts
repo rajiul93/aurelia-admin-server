@@ -28,7 +28,6 @@ export type FloorDto = {
   id: string;
   tourId: string;
   floorNo: number;
-  mapTileUrl: string | null;
   sortOrder: number;
   coverMediaId: string | null;
   coverMedia: FloorMediaDto | null;
@@ -59,7 +58,6 @@ export function toFloorDto(floor: FloorWithRelations): FloorDto {
     id: floor.id,
     tourId: floor.tourId,
     floorNo: floor.floorNo,
-    mapTileUrl: floor.mapTileUrl,
     sortOrder: floor.sortOrder,
     coverMediaId: floor.coverMediaId,
     coverMedia: floor.coverMedia

@@ -81,7 +81,6 @@ export const floorService = {
 
     const floor = await floorRepository.create(tourId, {
       floorNo: input.floorNo,
-      mapTileUrl: input.mapTileUrl,
       sortOrder: input.sortOrder,
       ...(input.coverMediaId
         ? { coverMedia: { connect: { id: input.coverMediaId } } }
@@ -124,7 +123,6 @@ export const floorService = {
 
     const floor = await floorRepository.update(tourId, floorId, {
       ...(input.floorNo !== undefined ? { floorNo: input.floorNo } : {}),
-      ...(input.mapTileUrl !== undefined ? { mapTileUrl: input.mapTileUrl } : {}),
       ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
       // undefined = leave as-is; null = clear the cover; an id = set it.
       ...(input.coverMediaId !== undefined

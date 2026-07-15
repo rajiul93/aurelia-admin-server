@@ -54,7 +54,6 @@ type FloorFormDialogProps = {
 function toFormValues(floor?: Floor, nextFloorNo = 1): FloorFormInput {
   return {
     floorNo: floor?.floorNo ?? nextFloorNo,
-    mapTileUrl: floor?.mapTileUrl ?? "",
     cover: defaultMediaFieldValue,
     sortOrder: floor?.sortOrder ?? 0,
     translations: emptyAudienceLanguageRecord((audience, language) => {
@@ -116,7 +115,6 @@ export function FloorFormDialog({
 
       const payload = {
         floorNo: values.floorNo,
-        mapTileUrl: values.mapTileUrl.trim() || null,
         coverMediaId,
         sortOrder: values.sortOrder,
         translations: emptyAudienceLanguageRecord((audience, language) => ({
@@ -194,14 +192,6 @@ export function FloorFormDialog({
               disabled={isPending}
             />
           </div>
-
-          <FormInput
-            name="mapTileUrl"
-            label="Map tile URL"
-            placeholder="https://tiles.example.com/floor1/{z}/{x}/{y}.pbf"
-            description="Optional. The offline map served for this floor."
-            disabled={isPending}
-          />
 
           <FormImageUpload
             name="cover"

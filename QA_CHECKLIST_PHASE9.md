@@ -26,7 +26,7 @@
 
 - [x] **Bundle Integration (4 tests)**
   - Build v2 bundle with per-floor routes ✅
-  - Include map tile URLs in v2 format ✅
+  - Include floor cover + translated names in v2 format ✅
   - Build v1 bundle with single flattened route ✅
   - Include format version in manifest ✅
   - Signed manifest verification ✅
@@ -45,12 +45,11 @@
 
 ### Unit Tests ✅
 
-- [x] **Floor Routing (9 tests)**
+- [x] **Floor Routing (tests)**
   - Get route for floor (v1/v2 compat) ✅
   - Get default floor ID ✅
   - Get all floor IDs ✅
   - Multi-floor detection ✅
-  - Get map tile URL for floor ✅
   - Handle non-existent floors ✅
   - Single-floor v2 tours ✅
   - V1 format handling ✅
@@ -84,7 +83,7 @@
   - [ ] 404 for non-existent floor
 
 - [ ] `PATCH /api/v1/tours/{tourId}/floors/{floorId}` - Update floor
-  - [ ] Update mapTileUrl
+  - [ ] Update coverMediaId / sortOrder / translations
   - [ ] Update floorNo (check unique constraint)
   - [ ] Audit log creation
 
@@ -113,7 +112,7 @@
 ### v2 Bundles (Multi-Floor)
 
 - [x] Floors array with per-floor routes
-- [x] Each floor has own map tile URL
+- [x] Floors ship coverUrl + translated names
 - [x] Spots reference floor via floorId
 - [x] Manifest version: "2"
 - [x] Manifest includes `bundleFormatVersion` field
@@ -142,7 +141,7 @@
 
 ### Scenario 2: Multi-Floor Tour (v2)
 - [ ] Create Colosseum tour with 4 floors
-- [ ] Each floor has unique map tiles
+- [ ] Each floor has name + cover image
 - [ ] Build v2 bundle
 - [ ] Verify 4 floors in bundle
 - [ ] Mobile app loads all 4 floors

@@ -140,9 +140,10 @@ export default function TourFloorsPage() {
                         {name ? ` — ${name}` : ""}
                       </CardTitle>
                       <p className="text-muted-foreground text-sm">
-                        {floor.mapTileUrl
-                          ? "Custom map tiles"
-                          : "No map tiles set"}
+                        {floor.spotCount} spot{floor.spotCount === 1 ? "" : "s"}
+                        {" · "}
+                        {floor.routeEdgeCount} route edge
+                        {floor.routeEdgeCount === 1 ? "" : "s"}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-1">

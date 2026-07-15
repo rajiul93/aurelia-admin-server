@@ -9,7 +9,7 @@
 
 **Status legend:** ✅ Completed · 🚧 In Progress · ⚠️ Known Issue · ⏳ Pending · ❌ Not Started
 
-Last updated: **2026-07-11**
+Last updated: **2026-07-15**
 
 ---
 
@@ -67,9 +67,11 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
   lifecycle (`DRAFT→REVIEW→PUBLISHED→ARCHIVED`), independent content version counters
   (`tourBundleVersion`, `mediaVersion`, `aiKnowledgeVersion`, `routeVersion`). Lifecycle panel + publish
   logic in [tour.publish.ts](src/modules/tour/tour.publish.ts).
-- ✅ **Floors** — multi-floor support: each tour can have multiple indoor floors, each with its own map
-  and set of spots. `Floor` model stores floorNo, tourId, optional mapTileUrl. Enables indoor/multi-level
-  tours (e.g., Colosseum 4 floors). Each floor has independent navigation, route, and offline map.
+- ✅ **Floors** — multi-floor support: each tour can have multiple indoor floors, each with its own
+  spots, route, cover image, and translated names. `Floor` model stores floorNo, tourId, optional
+  coverMediaId. Enables indoor/multi-level tours (e.g., Colosseum 4 floors). Each floor has
+  independent navigation and route; the mobile map uses OpenFreeMap for outdoor GPS (per-floor
+  custom indoor tiles are intentionally not wired yet).
 - ✅ **Spots** — per-floor points (or per-tour when single-floor tour) with optional lat/lng (Decimal 10,7),
   sort order, quick-tour inclusion, thumbnail, translations (title/short/quill/description/interesting-facts),
   spot FAQs, media. Spot now belongs to Floor (not directly to Tour).
@@ -169,7 +171,6 @@ model Floor {
   tourId    String
   tour      Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
   floorNo   Int                      // 1, 2, 3, 4... floor number
-  mapTileUrl String?                 // Optional: custom map tile URL per floor
   spots     Spot[]
   route     TourRoute?               // One route per floor (optional)
   createdAt DateTime @default(now())
@@ -331,8 +332,10 @@ in `aurelia-app`.
 - **Floor model relationship chain** — `Tour → Floor → Spot` is the new structure. Do not bypass Floor
   when querying spots; always validate `spot.floor.tourId == expected tourId`. Breaking this causes
   data leakage across tours.
-- **Each floor gets its own map** — `Floor.mapTileUrl` is per-floor. Bundle building must include all
-  floors' maps for Colosseum; mobile switches between floor-specific maps when user selects floor.
+- **Each floor has its own route and cover** — spots/routes are per-floor; `Floor.coverMediaId` is
+  optional and shipped in the v2 bundle as `coverUrl`. The mobile map today uses a shared OpenFreeMap
+  style for outdoor GPS; reintroduce a dedicated indoor-tile field only when Colosseum-style floor
+  plans are actually rendered.
 
 ---
 
@@ -357,6 +360,15 @@ are **deferred** (Phases 4–5). Full plan: `~/.claude/plans/ask-what-is-use-shi
 ---
 
 ## 11. Changelog
+
+- **2026-07-15** — **Dropped unused `Floor.mapTileUrl` (admin + mobile + DB).** The field was never
+  wired into MapLibre (the app uses OpenFreeMap for outdoor GPS), so keeping it in the floor form
+  only confused authors. Migration `20260715160000_drop_floor_map_tile_url` drops the nullable
+  column; admin floor form/API/DTO/schemas no longer accept it; v2 bundle floors no longer emit it;
+  mobile `BundleFloor` and `getMapTileUrlForFloor` are gone. Reintroduce a dedicated indoor-tile
+  field only when Colosseum-style floor plans are actually rendered. Existing Floor
+  `introduce_floor_model` migration history left intact (column still created there, then dropped).
+  Applied to production (`migrate diff` = no drift). `pnpm check` clean; **140 tests**.
 
 - **2026-07-15** — **Floors can carry a cover image (admin upload → bundle → app).** `Floor` gained a
   nullable **`coverMediaId`** (+ `Media.floors` back-relation); migration

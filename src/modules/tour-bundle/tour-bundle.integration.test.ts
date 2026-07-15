@@ -41,7 +41,6 @@ describe("TourBundleIntegration", () => {
         id: "floor-1",
         tourId: "tour-1",
         floorNo: 1,
-        mapTileUrl: "https://tiles.example.com/floor1/{z}/{x}/{y}.pbf",
         sortOrder: 0,
         coverMediaId: "media-floor-1",
         coverMedia: {
@@ -115,7 +114,6 @@ describe("TourBundleIntegration", () => {
         id: "floor-2",
         tourId: "tour-1",
         floorNo: 2,
-        mapTileUrl: "https://tiles.example.com/floor2/{z}/{x}/{y}.pbf",
         sortOrder: 1,
         coverMediaId: null,
         coverMedia: null,
@@ -193,17 +191,6 @@ describe("TourBundleIntegration", () => {
       ]);
       // A floor with no cover ships null, not a missing key.
       expect(floors?.[1]?.coverUrl).toBeNull();
-    });
-
-    it("should include map tile URLs in v2 format", () => {
-      const artifacts = buildTourBundleArtifacts(mockTourWithFloors, "2");
-
-      expect((artifacts.content as BundleContentV2).floors?.[0]?.mapTileUrl).toBe(
-        "https://tiles.example.com/floor1/{z}/{x}/{y}.pbf",
-      );
-      expect((artifacts.content as BundleContentV2).floors?.[1]?.mapTileUrl).toBe(
-        "https://tiles.example.com/floor2/{z}/{x}/{y}.pbf",
-      );
     });
   });
 

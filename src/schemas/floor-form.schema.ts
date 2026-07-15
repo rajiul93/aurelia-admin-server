@@ -35,11 +35,6 @@ const audienceLanguageTranslationsSchema = z.object(
 
 export const floorFormSchema = z.object({
   floorNo: z.number().int(),
-  mapTileUrl: z
-    .string()
-    .trim()
-    .url("Must be a valid URL")
-    .or(z.literal("")),
   cover: mediaFieldValueSchema,
   sortOrder: z.number().int().min(0),
   translations: audienceLanguageTranslationsSchema,

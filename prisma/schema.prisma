@@ -342,7 +342,6 @@ model Floor {
   tourId          String
   tour            Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
   floorNo         Int
-  mapTileUrl      String?
   sortOrder       Int      @default(0)
   coverMediaId    String?
   coverMedia      Media?   @relation(fields: [coverMediaId], references: [id], onDelete: SetNull)

@@ -34,7 +34,6 @@ function makeFloor(overrides: Record<string, unknown> = {}) {
     id: "floor-1",
     tourId: "tour-1",
     floorNo: 1,
-    mapTileUrl: null,
     sortOrder: 0,
     coverMediaId: null,
     coverMedia: null,
@@ -50,7 +49,6 @@ function makeFloor(overrides: Record<string, unknown> = {}) {
 
 const createInput = {
   floorNo: 1,
-  mapTileUrl: null,
   coverMediaId: null,
   sortOrder: 0,
   translations: undefined,

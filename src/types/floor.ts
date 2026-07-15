@@ -21,7 +21,6 @@ export type FloorTranslationPayload = {
 
 export type CreateFloorPayload = {
   floorNo: number;
-  mapTileUrl?: string | null;
   coverMediaId?: string | null;
   sortOrder?: number;
   translations?: Record<

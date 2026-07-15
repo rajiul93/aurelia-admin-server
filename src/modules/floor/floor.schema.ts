@@ -54,14 +54,12 @@ export function normalizeFloorTranslations(
 export const createFloorSchema = z
   .object({
     floorNo: z.coerce.number().int(),
-    mapTileUrl: z.string().trim().url().nullable().optional(),
     coverMediaId: z.string().trim().min(1).nullable().optional(),
     sortOrder: z.coerce.number().int().min(0).default(0),
     translations: audienceLanguageTranslationsSchema.optional(),
   })
   .transform((value) => ({
     floorNo: value.floorNo,
-    mapTileUrl: value.mapTileUrl ?? null,
     coverMediaId: value.coverMediaId ?? null,
     sortOrder: value.sortOrder,
     translations: value.translations
@@ -72,7 +70,6 @@ export const createFloorSchema = z
 export const updateFloorSchema = z
   .object({
     floorNo: z.coerce.number().int().optional(),
-    mapTileUrl: z.string().trim().url().nullable().optional(),
     coverMediaId: z.string().trim().min(1).nullable().optional(),
     sortOrder: z.coerce.number().int().min(0).optional(),
     translations: audienceLanguageTranslationsSchema.optional(),
@@ -80,7 +77,6 @@ export const updateFloorSchema = z
   .refine(
     (value) =>
       value.floorNo !== undefined ||
-      value.mapTileUrl !== undefined ||
       value.coverMediaId !== undefined ||
       value.sortOrder !== undefined ||
       value.translations !== undefined,
@@ -88,7 +84,6 @@ export const updateFloorSchema = z
   )
   .transform((value) => ({
     floorNo: value.floorNo,
-    mapTileUrl: value.mapTileUrl,
     coverMediaId: value.coverMediaId,
     sortOrder: value.sortOrder,
     translations: value.translations
