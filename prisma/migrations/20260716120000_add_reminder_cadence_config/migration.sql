@@ -1,0 +1,4 @@
+ALTER TABLE "AppReleaseConfig"
+ADD COLUMN "reminderOffsetDays" JSONB NOT NULL DEFAULT '[3,2,1]',
+ADD COLUMN "reminderHour" INTEGER NOT NULL DEFAULT 9,
+ADD COLUMN "reminderNudgeEnabled" BOOLEAN NOT NULL DEFAULT true;

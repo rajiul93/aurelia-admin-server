@@ -9,7 +9,7 @@
 
 **Status legend:** ✅ Completed · 🚧 In Progress · ⚠️ Known Issue · ⏳ Pending · ❌ Not Started
 
-Last updated: **2026-07-15**
+Last updated: **2026-07-16**
 
 ---
 
@@ -93,7 +93,9 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
 - ✅ **Knowledge articles** — `KNOWLEDGE | INFO_PAGE | LEGAL`, keyed, lifecycle-gated, optional inclusion
   in assistant, translated body html/text.
 - ✅ **App content (remote)** — `AppUiString` (translated UI strings) + `AppAsset` (keyed media, optional
-  time-of-day) + **`AppReleaseConfig`** singleton (feature flags, versions, maintenance mode). Admin panel
+  time-of-day) + **`AppReleaseConfig`** singleton (feature flags, versions, maintenance mode, and the
+  **tour-reminder cadence** — `reminderOffsetDays` / `reminderHour` / `reminderNudgeEnabled`, pushed to
+  the app via remote config). Admin panel
   [app-release-config-panel.tsx](src/app/(dashboard)/app-content/app-release-config-panel.tsx).
 
 **Access, subscriptions & payments**
@@ -136,7 +138,7 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
 ## 4. Database Schema
 
 Prisma schema: [prisma/schema.prisma](prisma/schema.prisma). Postgres via Neon. Migrations in
-[prisma/migrations/](prisma/migrations/) (latest: `20260706182045_add_knowledge_articles`). Seed:
+[prisma/migrations/](prisma/migrations/) (latest: `20260716120000_add_reminder_cadence_config`). Seed:
 [prisma/seed.ts](prisma/seed.ts) (`pnpm db:seed` — seeds subscription plans + device tiers).
 
 **Models (grouped):**
@@ -360,6 +362,47 @@ are **deferred** (Phases 4–5). Full plan: `~/.claude/plans/ask-what-is-use-shi
 ---
 
 ## 11. Changelog
+
+- **2026-07-16** — **Reminder cadence is now admin-controlled (remote config).** Extends Reminder v1:
+  instead of a hardcoded D-3/D-2/D-1 at 09:00, staff can tune *when* the mobile prep reminders fire.
+  `AppReleaseConfig` gained three columns — **`reminderOffsetDays Json @default("[3,2,1]")`** (days
+  before the visit each prep reminder fires; **`[]` disables prep reminders**), **`reminderHour Int
+  @default(9)`** (local hour 0–23 for reminders + the daily nudge), and **`reminderNudgeEnabled Boolean
+  @default(true)`** (the undated daily "set a date" nudge). Migration
+  `20260716120000_add_reminder_cadence_config` is additive (three columns with defaults, no backfill);
+  **applied to production** (`migrate status` = up to date).
+  - **Normalization helper** [lib/app-release/reminder-cadence.ts](src/lib/app-release/reminder-cadence.ts)
+    (`normalizeReminderOffsetDays` — dedupe/clamp 0–60/sort desc, empty-array preserved as "off";
+    `normalizeReminderHour` clamp 0–23→9; `normalizeReminderNudgeEnabled`) guards the Prisma `Json`
+    column so the admin panel and mapper never choke on garbage.
+  - **Admin UI** — [app-release-config-panel.tsx](src/app/(dashboard)/app-content/app-release-config-panel.tsx)
+    has a **Tour reminders** section: offsets as a comma list (`7, 3, 1`), reminder hour (0–23), and the
+    nudge toggle. Zod validation in [app-release-config.schema.ts](src/schemas/app-release-config.schema.ts).
+  - **Delivery** — the cadence rides the existing remote-config channel: mapper
+    [mobile-release-config.mapper.ts](src/modules/mobile-release-config/mobile-release-config.mapper.ts)
+    + types now emit `reminderOffsetDays` / `reminderHour` / `reminderNudgeEnabled`; the app reads them
+    from `release-config` and reschedules on change (see mobile CLAUDE.md). `pnpm check` clean; tests green.
+
+- **2026-07-16** — **Per-tour visit date on the access grant (backend foundation for Reminder v1).**
+  Groundwork for the mobile "Smart Tour Reminder" feature: each entitled tour can now carry a
+  planned visit date + optional start time. `TourAccessTour` gained **`tourDate DateTime?`** (stored
+  as **UTC noon** of the calendar day so no timezone can roll it a day off) and **`startTime String?`**
+  (`"HH:mm"`, copy-only). Migration `20260716000000_add_tour_access_tour_visit_date` is purely additive
+  (two nullable columns, no backfill); **rehearsed on a throwaway Neon branch → `migrate diff` = "No
+  difference detected" → applied to production** (prod diff also clean, schema up to date). New shared
+  helper [lib/tour-date.ts](src/lib/tour-date.ts) (`tourDateToUtcNoon` / `utcNoonToTourDate` /
+  `normalizeStartTime`) with 15 co-located tests. The admin grant API/form moved from a flat
+  `tourIds: string[]` to a structured **`tours: [{tourId, tourDate?, startTime?}]`** end-to-end (Zod
+  schemas, `tourAccessService` `assertTours`, mapper/DTO `TourAccessTourSummary`, client payload type,
+  and [access-form.tsx](src/app/(dashboard)/access/access-form.tsx) — each checked tour reveals a
+  **Visit date** + **Start time** input). Both mobile responses now emit `tourDate` (`YYYY-MM-DD`) +
+  `startTime` per tour: `/me/entitlements`
+  ([mobile-entitlements.service.ts](src/modules/mobile-entitlements/mobile-entitlements.service.ts))
+  and `POST /auth/unlock` (+ legacy `verifyOtp`)
+  ([mobile-auth.service.ts](src/modules/mobile-auth/mobile-auth.service.ts)). No new mobile write
+  endpoint — user-edited dates stay device-local in v1. `pnpm typecheck`/lint clean; **163 tests**
+  (155 + 8 new). ⏳ Mobile side (expo-notifications scheduler, set-date modal, visit-checklist screen)
+  still to build — plan at `~/.claude/plans/tumi-mobile-app-er-foamy-penguin.md`.
 
 - **2026-07-15** — **Dropped unused `Floor.mapTileUrl` (admin + mobile + DB).** The field was never
   wired into MapLibre (the app uses OpenFreeMap for outdoor GPS), so keeping it in the floor form

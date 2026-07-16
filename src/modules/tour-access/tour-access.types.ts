@@ -4,6 +4,10 @@ export type TourAccessTourSummary = {
   id: string;
   slug: string;
   title: string;
+  /** Planned visit day as "YYYY-MM-DD", or null when not scheduled yet. */
+  tourDate: string | null;
+  /** Optional "HH:mm" start time used in reminder copy. */
+  startTime: string | null;
 };
 
 export type DeviceSessionDto = {

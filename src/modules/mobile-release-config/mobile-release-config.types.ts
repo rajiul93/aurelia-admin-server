@@ -8,6 +8,9 @@ export type MobileRemoteConfig = {
   maxChatHistory: number;
   supportedLanguages: string[];
   emergencyAnnouncement: string | null;
+  reminderOffsetDays: number[];
+  reminderHour: number;
+  reminderNudgeEnabled: boolean;
 };
 
 export type MobileReleaseConfig = {

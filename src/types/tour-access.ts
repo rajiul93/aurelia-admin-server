@@ -4,6 +4,14 @@ export type TourAccessStatus = TourAccessDto["status"];
 
 export type TourAccess = TourAccessDto;
 
+export type TourAccessTourInput = {
+  tourId: string;
+  /** "YYYY-MM-DD" planned visit day, or null/omitted when not scheduled. */
+  tourDate?: string | null;
+  /** "HH:mm" 24h start time, or null/omitted. */
+  startTime?: string | null;
+};
+
 export type CreateTourAccessPayload = {
   phone: string;
   pin: string;
@@ -13,7 +21,7 @@ export type CreateTourAccessPayload = {
   maxDevices: number;
   allowSubscriptionFeatures: boolean;
   notes?: string;
-  tourIds: string[];
+  tours: TourAccessTourInput[];
 };
 
 /** `pin` here is a reset: send it only when the admin typed a new one. */

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { MobileSessionContext } from "@/lib/mobile/require-mobile";
+import { utcNoonToTourDate } from "@/lib/tour-date";
 
 export const mobileEntitlementsService = {
   async getForSession(session: MobileSessionContext) {
@@ -69,6 +70,9 @@ export const mobileEntitlementsService = {
           mediaVersion: entry.tour.mediaVersion,
           aiKnowledgeVersion: entry.tour.aiKnowledgeVersion,
           routeVersion: entry.tour.routeVersion,
+          // Admin-set visit schedule; seeds the app's prep reminders.
+          tourDate: utcNoonToTourDate(entry.tourDate),
+          startTime: entry.startTime,
         })),
     };
   },

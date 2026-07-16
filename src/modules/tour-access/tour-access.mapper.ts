@@ -5,6 +5,7 @@ import type {
   TourTranslation,
 } from "@/generated/prisma/client";
 import { DEFAULT_LANGUAGE } from "@/lib/i18n/languages";
+import { utcNoonToTourDate } from "@/lib/tour-date";
 import type {
   TourAccessDto,
   TourAccessStatus,
@@ -54,6 +55,8 @@ function mapTourSummary(
     id: entry.tour.id,
     slug: entry.tour.slug,
     title: getTourTitle(entry.tour),
+    tourDate: utcNoonToTourDate(entry.tourDate),
+    startTime: entry.startTime,
   };
 }
 

@@ -44,6 +44,9 @@ export type AppReleaseConfig = {
   maxChatHistory: number;
   supportedLanguages: string[];
   emergencyAnnouncement: string | null;
+  reminderOffsetDays: number[];
+  reminderHour: number;
+  reminderNudgeEnabled: boolean;
   updatedAt: string;
 };
 
@@ -60,4 +63,7 @@ export type UpdateAppReleaseConfigPayload = {
   maxChatHistory?: number;
   supportedLanguages?: Array<"en" | "es" | "fr">;
   emergencyAnnouncement?: string | null;
+  reminderOffsetDays?: number[];
+  reminderHour?: number;
+  reminderNudgeEnabled?: boolean;
 };

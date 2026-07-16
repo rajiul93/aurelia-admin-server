@@ -508,6 +508,12 @@ model TourAccess {
 model TourAccessTour {
   tourAccessId String
   tourId       String
+  /// The buyer's planned visit date for this tour. Stored as UTC noon of the
+  /// calendar day so a timezone shift can't roll it to the previous/next day.
+  /// Seeds the mobile prep-reminder schedule (D-3/D-2/D-1); null = user sets it.
+  tourDate     DateTime?
+  /// Optional "HH:mm" (24h) start time, used only in reminder copy ("arrive early").
+  startTime    String?
   tourAccess   TourAccess @relation(fields: [tourAccessId], references: [id], onDelete: Cascade)
   tour         Tour       @relation(fields: [tourId], references: [id], onDelete: Cascade)
 
@@ -881,5 +887,11 @@ model AppReleaseConfig {
   maxChatHistory          Int           @default(50)
   supportedLanguages      Json          @default("[\"en\",\"es\",\"fr\"]")
   emergencyAnnouncement String?
+  // Tour-reminder cadence (admin-controlled). Days-before-visit each prep
+  // reminder fires, the local hour it fires at, and whether the undated daily
+  // "set a date" nudge runs.
+  reminderOffsetDays      Json          @default("[3,2,1]")
+  reminderHour            Int           @default(9)
+  reminderNudgeEnabled    Boolean       @default(true)
   updatedAt             DateTime      @updatedAt
 }

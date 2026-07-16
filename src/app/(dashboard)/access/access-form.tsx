@@ -57,7 +57,12 @@ function toFormValues(access?: TourAccess): TourAccessFormInput {
     maxDevices: access?.maxDevices ?? 1,
     allowSubscriptionFeatures: access?.allowSubscriptionFeatures ?? false,
     notes: access?.notes ?? "",
-    tourIds: access?.tours.map((tour) => tour.id) ?? [],
+    tours:
+      access?.tours.map((tour) => ({
+        tourId: tour.id,
+        tourDate: tour.tourDate ?? "",
+        startTime: tour.startTime ?? "",
+      })) ?? [],
   };
 }
 
@@ -82,8 +87,8 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
   });
 
   const tours = toursData?.data ?? [];
-  const selectedTourIds =
-    useWatch({ control: form.control, name: "tourIds" }) ?? [];
+  const selectedTours =
+    useWatch({ control: form.control, name: "tours" }) ?? [];
   const isPending = createAccess.isPending || updateAccess.isPending;
   const isRevoked = defaultValues?.status === "REVOKED";
   const isLockedOut = Boolean(
@@ -92,12 +97,26 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
   );
 
   function toggleTour(tourId: string) {
-    const current = form.getValues("tourIds");
-    const next = current.includes(tourId)
-      ? current.filter((id) => id !== tourId)
-      : [...current, tourId];
+    const current = form.getValues("tours");
+    const next = current.some((entry) => entry.tourId === tourId)
+      ? current.filter((entry) => entry.tourId !== tourId)
+      : [...current, { tourId, tourDate: "", startTime: "" }];
 
-    form.setValue("tourIds", next, { shouldValidate: true });
+    form.setValue("tours", next, { shouldValidate: true });
+  }
+
+  function updateTourSchedule(
+    tourId: string,
+    field: "tourDate" | "startTime",
+    value: string,
+  ) {
+    const next = form
+      .getValues("tours")
+      .map((entry) =>
+        entry.tourId === tourId ? { ...entry, [field]: value } : entry,
+      );
+
+    form.setValue("tours", next, { shouldValidate: true });
   }
 
   async function onSubmit(values: TourAccessFormInput) {
@@ -116,7 +135,12 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
       maxDevices: values.maxDevices,
       allowSubscriptionFeatures: values.allowSubscriptionFeatures,
       notes: values.notes.trim() ? values.notes.trim() : undefined,
-      tourIds: values.tourIds,
+      tours: values.tours.map((entry) => ({
+        tourId: entry.tourId,
+        // Empty inputs become null so the server clears any prior schedule.
+        tourDate: entry.tourDate.trim() ? entry.tourDate.trim() : null,
+        startTime: entry.startTime.trim() ? entry.startTime.trim() : null,
+      })),
       // Only send a PIN when one was typed — otherwise the existing one stands.
       ...(values.pin ? { pin: values.pin } : {}),
     };
@@ -273,7 +297,10 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
         <CardHeader>
           <CardTitle>Allowed tours</CardTitle>
           <CardDescription>
-            Select which tours this buyer can download after OTP sign-in.
+            Select which tours this buyer can download. For each one, you can set
+            an optional visit date and start time — the app uses them to remind
+            the buyer to prepare (D-3 / D-2 / D-1). Leave them blank and the
+            buyer sets their own date in the app.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -289,39 +316,90 @@ export function TourAccessForm({ mode, defaultValues }: TourAccessFormProps) {
 
           {tours.map((tour) => {
             const preferred = getPreferredTranslation(tour.translations);
-            const checked = selectedTourIds.includes(tour.id);
+            const selected = selectedTours.find(
+              (entry) => entry.tourId === tour.id,
+            );
+            const checked = Boolean(selected);
 
             return (
-              <label
+              <div
                 key={tour.id}
                 className={cn(
-                  "flex cursor-pointer items-start gap-3 rounded-lg border p-3",
+                  "rounded-lg border p-3",
                   checked ? "border-primary/50 bg-primary/5" : "border-border",
-                  isRevoked && "cursor-not-allowed opacity-60",
+                  isRevoked && "opacity-60",
                 )}
               >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={defaultValues?.status === "REVOKED"}
-                  onChange={() => toggleTour(tour.id)}
-                  className="mt-1"
-                />
-                <span className="space-y-1">
-                  <span className="block font-medium">
-                    {preferred?.title ?? tour.slug}
+                <label
+                  className={cn(
+                    "flex items-start gap-3",
+                    isRevoked ? "cursor-not-allowed" : "cursor-pointer",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={isRevoked}
+                    onChange={() => toggleTour(tour.id)}
+                    className="mt-1"
+                  />
+                  <span className="space-y-1">
+                    <span className="block font-medium">
+                      {preferred?.title ?? tour.slug}
+                    </span>
+                    <span className="text-muted-foreground block text-xs">
+                      {tour.slug}
+                    </span>
                   </span>
-                  <span className="text-muted-foreground block text-xs">
-                    {tour.slug}
-                  </span>
-                </span>
-              </label>
+                </label>
+
+                {checked ? (
+                  <div className="mt-3 grid gap-3 pl-7 sm:grid-cols-2">
+                    <label className="space-y-1 text-sm">
+                      <span className="text-muted-foreground block text-xs">
+                        Visit date (optional)
+                      </span>
+                      <input
+                        type="date"
+                        value={selected?.tourDate ?? ""}
+                        disabled={isRevoked}
+                        onChange={(event) =>
+                          updateTourSchedule(
+                            tour.id,
+                            "tourDate",
+                            event.target.value,
+                          )
+                        }
+                        className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+                      />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                      <span className="text-muted-foreground block text-xs">
+                        Start time (optional)
+                      </span>
+                      <input
+                        type="time"
+                        value={selected?.startTime ?? ""}
+                        disabled={isRevoked}
+                        onChange={(event) =>
+                          updateTourSchedule(
+                            tour.id,
+                            "startTime",
+                            event.target.value,
+                          )
+                        }
+                        className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+              </div>
             );
           })}
 
-          {form.formState.errors.tourIds ? (
+          {form.formState.errors.tours ? (
             <p className="text-destructive text-sm">
-              {form.formState.errors.tourIds.message}
+              {form.formState.errors.tours.message}
             </p>
           ) : null}
         </CardContent>

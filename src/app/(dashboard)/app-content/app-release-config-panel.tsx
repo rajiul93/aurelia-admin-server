@@ -15,6 +15,30 @@ import { useUpdateAppReleaseConfig } from "@/hooks/mutations/use-app-release-con
 import { useAppReleaseConfig } from "@/hooks/queries/use-app-content";
 import type { UpdateAppReleaseConfigPayload } from "@/types/app-content";
 
+/**
+ * Parse the comma-separated "days before visit" input into a clean, deduped,
+ * largest-first list of whole days in [0, 60]. Returns [] for an empty input
+ * (disables prep reminders) and null when the text has no valid numbers at all
+ * (so a typo doesn't silently wipe the schedule).
+ */
+function parseOffsetDays(raw: string): number[] | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") {
+    return [];
+  }
+
+  const tokens = trimmed.split(/[\s,]+/).filter(Boolean);
+  const numbers = tokens
+    .map((token) => Number(token))
+    .filter((value) => Number.isInteger(value) && value >= 0 && value <= 60);
+
+  if (numbers.length === 0) {
+    return null;
+  }
+
+  return Array.from(new Set(numbers)).sort((a, b) => b - a);
+}
+
 export function AppReleaseConfigPanel() {
   const { data, isLoading } = useAppReleaseConfig();
   const updateConfig = useUpdateAppReleaseConfig();
@@ -148,6 +172,80 @@ export function AppReleaseConfigPanel() {
               }}
             />
           </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+          <div>
+            <p className="text-sm font-medium">Tour reminders</p>
+            <p className="text-muted-foreground text-xs">
+              Controls when prep notifications fire on the mobile app. Applies to
+              tours whose visit date the buyer hasn&apos;t overridden.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="reminderOffsetDays">
+                Days before visit (comma-separated)
+              </Label>
+              <Input
+                id="reminderOffsetDays"
+                defaultValue={(config.reminderOffsetDays ?? [3, 2, 1]).join(
+                  ", ",
+                )}
+                placeholder="3, 2, 1"
+                onBlur={(event) => {
+                  const parsed = parseOffsetDays(event.target.value);
+                  if (parsed) {
+                    void save({ reminderOffsetDays: parsed });
+                  }
+                }}
+              />
+              <p className="text-muted-foreground text-xs">
+                e.g. <code>7, 3, 1</code> sends reminders 7, 3, and 1 day before.
+                Leave empty to disable prep reminders.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reminderHour">Reminder hour (0–23, local)</Label>
+              <Input
+                id="reminderHour"
+                type="number"
+                min={0}
+                max={23}
+                defaultValue={config.reminderHour ?? 9}
+                onBlur={(event) => {
+                  const value = Number(event.target.value);
+                  if (Number.isInteger(value) && value >= 0 && value <= 23) {
+                    void save({ reminderHour: value });
+                  }
+                }}
+              />
+              <p className="text-muted-foreground text-xs">
+                Local device time each reminder fires (e.g. <code>9</code> = 9 AM).
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={config.reminderNudgeEnabled ?? true}
+              onChange={(event) =>
+                void save({ reminderNudgeEnabled: event.target.checked })
+              }
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-medium">
+                Daily &ldquo;set a date&rdquo; nudge
+              </span>
+              <span className="text-muted-foreground block text-xs">
+                Reminds buyers who skipped picking a visit date, once a day.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="space-y-2">

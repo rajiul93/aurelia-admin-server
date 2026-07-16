@@ -27,7 +27,20 @@ export const tourAccessFormSchema = z
     maxDevices: z.number().int().min(1).max(20),
     allowSubscriptionFeatures: z.boolean(),
     notes: z.string().trim().max(1000),
-    tourIds: z.array(z.string()).min(1, "Select at least one tour"),
+    /**
+     * One row per selected tour, each carrying an optional planned visit date
+     * (YYYY-MM-DD from an `<input type="date">`) and start time (HH:mm). Empty
+     * strings mean "not scheduled" and the server normalizes them to null.
+     */
+    tours: z
+      .array(
+        z.object({
+          tourId: z.string().min(1),
+          tourDate: z.string(),
+          startTime: z.string(),
+        }),
+      )
+      .min(1, "Select at least one tour"),
   })
   .refine(
     (value) => new Date(value.expiresAt) > new Date(value.activatedAt),

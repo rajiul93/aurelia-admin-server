@@ -36,6 +36,32 @@ const phoneSchema = z
   .min(6, "Phone number is required")
   .max(30, "Phone number is too long");
 
+/** Empty string is treated as "no value" so a cleared date/time input passes. */
+const visitDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Visit date must be YYYY-MM-DD")
+  .or(z.literal(""))
+  .nullish();
+
+const startTimeSchema = z
+  .string()
+  .trim()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Start time must be HH:mm")
+  .or(z.literal(""))
+  .nullish();
+
+/**
+ * One entitled tour plus its optional visit schedule. Replaces the old flat
+ * `tourIds: string[]` — a tour now carries an optional planned visit date (and
+ * start time) that seeds the mobile prep-reminder schedule.
+ */
+const tourEntrySchema = z.object({
+  tourId: z.string().trim().min(1),
+  tourDate: visitDateSchema,
+  startTime: startTimeSchema,
+});
+
 export const createTourAccessSchema = z
   .object({
     phone: phoneSchema,
@@ -46,8 +72,8 @@ export const createTourAccessSchema = z
     maxDevices: z.coerce.number().int().min(1).max(20).default(1),
     allowSubscriptionFeatures: z.boolean().default(false),
     notes: z.string().trim().max(1000).optional(),
-    tourIds: z
-      .array(z.string().trim().min(1))
+    tours: z
+      .array(tourEntrySchema)
       .min(1, "At least one tour is required"),
   })
   .refine((value) => value.expiresAt > value.activatedAt, {
@@ -66,7 +92,7 @@ export const updateTourAccessSchema = z
     maxDevices: z.coerce.number().int().min(1).max(20).optional(),
     allowSubscriptionFeatures: z.boolean().optional(),
     notes: z.string().trim().max(1000).nullable().optional(),
-    tourIds: z.array(z.string().trim().min(1)).min(1).optional(),
+    tours: z.array(tourEntrySchema).min(1).optional(),
     status: z.enum(["ACTIVE", "REVOKED"]).optional(),
   })
   .refine((value) => Object.values(value).some((entry) => entry !== undefined), {

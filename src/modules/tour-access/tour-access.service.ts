@@ -3,6 +3,7 @@ import { auditService, type AuditContext } from "@/lib/audit";
 import { hashPin } from "@/lib/mobile/pin";
 import { normalizePhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
+import { normalizeStartTime, tourDateToUtcNoon } from "@/lib/tour-date";
 import { tourRepository } from "@/modules/tour/tour.repository";
 import {
   toTourAccessDto,
@@ -34,22 +35,54 @@ function mapAuditAccess(
     maxDevices: access.maxDevices,
     allowSubscriptionFeatures: access.allowSubscriptionFeatures,
     notes: access.notes,
-    tourIds: access.tours.map((entry) => entry.tourId),
+    tours: access.tours.map((entry) => ({
+      tourId: entry.tourId,
+      tourDate: entry.tourDate?.toISOString() ?? null,
+      startTime: entry.startTime,
+    })),
     activeDeviceCount: access.deviceSessions.length,
   };
 }
 
-async function assertTourIds(tourIds: string[]) {
-  const uniqueIds = [...new Set(tourIds)];
+type TourEntryInput = {
+  tourId: string;
+  tourDate?: string | null;
+  startTime?: string | null;
+};
 
-  for (const tourId of uniqueIds) {
-    const tour = await tourRepository.findById(tourId);
-    if (!tour) {
-      throw new ValidationError(`Tour not found: ${tourId}`);
+/**
+ * Validate every tour exists and collapse duplicates (first occurrence wins its
+ * schedule), returning Prisma-ready join rows with the visit date converted to
+ * the stored UTC-noon instant.
+ */
+async function assertTours(tours: TourEntryInput[]) {
+  const byId = new Map<string, TourEntryInput>();
+  for (const entry of tours) {
+    if (!byId.has(entry.tourId)) {
+      byId.set(entry.tourId, entry);
     }
   }
 
-  return uniqueIds;
+  const rows: {
+    tourId: string;
+    tourDate: Date | null;
+    startTime: string | null;
+  }[] = [];
+
+  for (const entry of byId.values()) {
+    const tour = await tourRepository.findById(entry.tourId);
+    if (!tour) {
+      throw new ValidationError(`Tour not found: ${entry.tourId}`);
+    }
+
+    rows.push({
+      tourId: entry.tourId,
+      tourDate: tourDateToUtcNoon(entry.tourDate),
+      startTime: normalizeStartTime(entry.startTime),
+    });
+  }
+
+  return rows;
 }
 
 export const tourAccessService = {
@@ -80,7 +113,7 @@ export const tourAccessService = {
     staffAuthUserId: string,
     audit?: AuditContext,
   ) {
-    const tourIds = await assertTourIds(input.tourIds);
+    const tourRows = await assertTours(input.tours);
     const phone = normalizePhone(input.phone);
 
     const existing = await prisma.tourAccess.findUnique({ where: { phone } });
@@ -101,7 +134,7 @@ export const tourAccessService = {
       notes: input.notes,
       activatedById: staffAuthUserId,
       tours: {
-        create: tourIds.map((tourId) => ({ tourId })),
+        create: tourRows,
       },
     });
 
@@ -122,9 +155,7 @@ export const tourAccessService = {
       throw new NotFoundError("Tour access record not found");
     }
 
-    if (input.tourIds) {
-      await assertTourIds(input.tourIds);
-    }
+    const tourRows = input.tours ? await assertTours(input.tours) : undefined;
 
     if (input.maxDevices !== undefined) {
       const activeCount = existing.deviceSessions.length;
@@ -174,11 +205,11 @@ export const tourAccessService = {
         : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
-      ...(input.tourIds
+      ...(tourRows
         ? {
             tours: {
               deleteMany: {},
-              create: [...new Set(input.tourIds)].map((tourId) => ({ tourId })),
+              create: tourRows,
             },
           }
         : {}),

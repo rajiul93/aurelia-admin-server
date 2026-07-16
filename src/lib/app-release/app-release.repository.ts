@@ -14,6 +14,9 @@ const REMOTE_CONFIG_FIELDS = [
   "maxChatHistory",
   "supportedLanguages",
   "emergencyAnnouncement",
+  "reminderOffsetDays",
+  "reminderHour",
+  "reminderNudgeEnabled",
 ] as const satisfies ReadonlyArray<keyof UpdateAppReleaseConfigInput>;
 
 export const appReleaseRepository = {
@@ -65,6 +68,9 @@ export const appReleaseRepository = {
       maxChatHistory: input.maxChatHistory,
       supportedLanguages: input.supportedLanguages,
       emergencyAnnouncement: input.emergencyAnnouncement,
+      reminderOffsetDays: input.reminderOffsetDays,
+      reminderHour: input.reminderHour,
+      reminderNudgeEnabled: input.reminderNudgeEnabled,
     };
 
     if (input.publishStatus === "PUBLISHED") {
@@ -91,6 +97,9 @@ export const appReleaseRepository = {
         maxChatHistory: input.maxChatHistory ?? 50,
         supportedLanguages: input.supportedLanguages ?? ["en", "es", "fr"],
         emergencyAnnouncement: input.emergencyAnnouncement ?? null,
+        reminderOffsetDays: input.reminderOffsetDays ?? [3, 2, 1],
+        reminderHour: input.reminderHour ?? 9,
+        reminderNudgeEnabled: input.reminderNudgeEnabled ?? true,
         publishedAt: input.publishStatus === "PUBLISHED" ? new Date() : null,
       },
       update: data,

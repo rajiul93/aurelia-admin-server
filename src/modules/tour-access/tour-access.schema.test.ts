@@ -12,7 +12,7 @@ describe("createTourAccessSchema", () => {
     pin: "0417",
     activatedAt: "2029-01-01T00:00:00.000Z",
     expiresAt: "2030-01-01T00:00:00.000Z",
-    tourIds: ["tour-1"],
+    tours: [{ tourId: "tour-1" }],
   };
 
   it("accepts a minimal valid payload and applies defaults", () => {
@@ -72,7 +72,44 @@ describe("createTourAccessSchema", () => {
 
   it("requires at least one tour", () => {
     expect(
-      createTourAccessSchema.safeParse({ ...valid, tourIds: [] }).success,
+      createTourAccessSchema.safeParse({ ...valid, tours: [] }).success,
+    ).toBe(false);
+  });
+
+  it("accepts an optional visit date and start time per tour", () => {
+    const result = createTourAccessSchema.safeParse({
+      ...valid,
+      tours: [{ tourId: "tour-1", tourDate: "2029-06-01", startTime: "09:30" }],
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.tours[0]).toMatchObject({
+      tourId: "tour-1",
+      tourDate: "2029-06-01",
+      startTime: "09:30",
+    });
+  });
+
+  it("treats an empty visit date/start time as allowed (cleared)", () => {
+    expect(
+      createTourAccessSchema.safeParse({
+        ...valid,
+        tours: [{ tourId: "tour-1", tourDate: "", startTime: "" }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a malformed visit date or start time", () => {
+    expect(
+      createTourAccessSchema.safeParse({
+        ...valid,
+        tours: [{ tourId: "tour-1", tourDate: "01/06/2029" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      createTourAccessSchema.safeParse({
+        ...valid,
+        tours: [{ tourId: "tour-1", startTime: "9am" }],
+      }).success,
     ).toBe(false);
   });
 

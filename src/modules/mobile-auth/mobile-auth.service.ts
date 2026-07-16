@@ -15,6 +15,7 @@ import {
 } from "@/lib/mobile/session-token";
 import { normalizePhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
+import { utcNoonToTourDate } from "@/lib/tour-date";
 import type {
   OtpRequestInput,
   OtpVerifyInput,
@@ -270,6 +271,9 @@ export const mobileAuthService = {
         .map((entry) => ({
           id: entry.tour.id,
           slug: entry.tour.slug,
+          // Admin-set visit schedule; seeds the app's prep reminders on unlock.
+          tourDate: utcNoonToTourDate(entry.tourDate),
+          startTime: entry.startTime,
         })),
     };
   },
@@ -424,6 +428,9 @@ export const mobileAuthService = {
         .map((entry) => ({
           id: entry.tour.id,
           slug: entry.tour.slug,
+          // Admin-set visit schedule; seeds the app's prep reminders on unlock.
+          tourDate: utcNoonToTourDate(entry.tourDate),
+          startTime: entry.startTime,
         })),
     };
   },
