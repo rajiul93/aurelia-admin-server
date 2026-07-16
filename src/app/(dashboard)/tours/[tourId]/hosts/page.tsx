@@ -58,8 +58,20 @@ export default function HostsPage() {
                       {host.availableFrom} - {host.availableTo}
                     </span>
                   )}
-                  <span className={host.isActive ? "text-green-600" : "text-red-600"}>
-                    {host.isActive ? "Available" : "Offline"}
+                  <span
+                    className={
+                      host.isAvailableNow
+                        ? "text-green-600"
+                        : !host.isActive
+                          ? "text-red-600"
+                          : "text-orange-600"
+                    }
+                  >
+                    {host.isAvailableNow
+                      ? "Available"
+                      : !host.isActive
+                        ? "Offline (deactivated)"
+                        : "Offline (outside hours)"}
                   </span>
                 </div>
               </div>

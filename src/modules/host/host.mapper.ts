@@ -1,5 +1,6 @@
 import type { Host, Media, HostTranslation } from "@/generated/prisma/client";
 import type { HostDto } from "./host.types";
+import { computeIsAvailableNow } from "./host.availability";
 
 export function toHostDto(
   host: Host & { photoMedia: Media | null; translations: HostTranslation[] }
@@ -16,6 +17,11 @@ export function toHostDto(
     availableFrom: host.availableFrom ?? null,
     availableTo: host.availableTo ?? null,
     isActive: host.isActive,
+    isAvailableNow: computeIsAvailableNow(
+      host.isActive,
+      host.availableFrom,
+      host.availableTo
+    ),
     sortOrder: host.sortOrder,
     translations: host.translations.map((t) => ({
       language: t.language as "en" | "es" | "fr",

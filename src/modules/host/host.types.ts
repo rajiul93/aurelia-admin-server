@@ -12,6 +12,7 @@ export type HostDto = {
   availableFrom: string | null;
   availableTo: string | null;
   isActive: boolean;
+  isAvailableNow: boolean;
   sortOrder: number;
   translations: Array<{
     language: AppLanguage;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -74,6 +74,36 @@ export function HostFormDialog({
       translations: getDefaultTranslations(),
     },
   });
+
+  useEffect(() => {
+    if (open && editingHost) {
+      form.reset({
+        name: editingHost.name,
+        role: editingHost.role ?? "",
+        photo: { file: null, removeExisting: false },
+        latitude: editingHost.latitude,
+        longitude: editingHost.longitude,
+        availableFrom: editingHost.availableFrom ?? null,
+        availableTo: editingHost.availableTo ?? null,
+        isActive: editingHost.isActive,
+        sortOrder: editingHost.sortOrder,
+        translations: getDefaultTranslations(),
+      });
+    } else if (open && !editingHost) {
+      form.reset({
+        name: "",
+        role: "",
+        photo: { file: null, removeExisting: false },
+        latitude: 0,
+        longitude: 0,
+        availableFrom: null,
+        availableTo: null,
+        isActive: true,
+        sortOrder: 0,
+        translations: getDefaultTranslations(),
+      });
+    }
+  }, [open, editingHost, form]);
 
   async function onSubmit(values: HostFormData) {
     setSubmitError(null);
