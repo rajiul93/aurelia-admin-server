@@ -11,6 +11,7 @@ export type MobileRemoteConfig = {
   reminderOffsetDays: number[];
   reminderHour: number;
   reminderNudgeEnabled: boolean;
+  venueTimezone: string;
 };
 
 export type MobileReleaseConfig = {

@@ -9,7 +9,7 @@
 
 **Status legend:** ✅ Completed · 🚧 In Progress · ⚠️ Known Issue · ⏳ Pending · ❌ Not Started
 
-Last updated: **2026-07-16**
+Last updated: **2026-07-17**
 
 ---
 
@@ -48,11 +48,12 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
   `withErrorHandler` ([src/lib/api/handler.ts](src/lib/api/handler.ts)), which maps `AppError`
   subclasses ([src/lib/api/errors.ts](src/lib/api/errors.ts)), Prisma errors (`P2002`→409, `P2025`→404,
   `P1001`→503), and **transient Neon errors → 503** (see §8).
-- **Admin modules:** `tour`, `spot`, `tour-route`, `tour-bundle`, `tour-access`, `media`, `faq`,
+- **Admin modules:** `tour`, `spot`, `floor`, `tour-route`, `tour-bundle`, `tour-access`, `media`, `faq`,
   `faq-category`, `knowledge-article`, `ai-knowledge`, `app-asset`, `app-ui-string`, `audit-log`,
-  `device-pricing-tier`, `subscription-plan`, `subscription-purchase`, `staff-profile`, `user`.
+  `device-pricing-tier`, `subscription-plan`, `subscription-purchase`, `staff-profile`, `user`,
+  `host`, `host-directions`.
 - **Mobile modules:** `mobile-auth`, `mobile-catalog`, `mobile-download`, `mobile-entitlements`,
-  `mobile-knowledge`, `mobile-app-content`, `mobile-release-config`, `mobile-versions`.
+  `mobile-knowledge`, `mobile-app-content`, `mobile-release-config`, `mobile-versions`, `mobile-host`.
 - **Client-side services** ([src/services/](src/services/)) are axios wrappers the admin UI calls via
   TanStack Query hooks in [src/hooks/queries/](src/hooks/queries/) and
   [src/hooks/mutations/](src/hooks/mutations/). Query keys centralized in
@@ -86,6 +87,20 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
 - ✅ **Media** — upload/list/delete backed by **Cloudflare R2** ([src/lib/storage/](src/lib/storage/),
   `@aws-sdk/client-s3`); `Media` rows referenced across models; `TourMedia` join with type/language/
   audience/thumbnail.
+
+**Hosts (on-site staff)**
+- ✅ **Hosts** — per-tour on-site staff a visitor can find: name, role, photo, lat/lng, opening hours
+  (`availableFrom`/`availableTo` as bare `"HH:mm"`), `isActive`, sortOrder, translated bios.
+  Admin CRUD at `/tours/[tourId]/hosts`; mobile reads a published tour's hosts via
+  `/api/v1/app/tours/[tourId]/hosts`. **Inactive hosts are still returned** — the app shows the card
+  with an Offline chip and blocks Map/Directions behind a "not active" modal (a deliberate product
+  decision, not an oversight).
+- ✅ **Host directions** — walking route from the visitor to a host via OSRM
+  ([host-directions.service.ts](src/modules/host-directions/host-directions.service.ts)); OSRM failure
+  surfaces as **502 ROUTING_UNAVAILABLE**, never a 500.
+- ✅ **Availability is venue-local** — `isAvailableNow` is computed against
+  `AppReleaseConfig.venueTimezone`, never the server clock (see §8). The mobile app re-derives it on
+  device, so the field is a fallback rather than the source of truth.
 
 **Support content**
 - ✅ **FAQs** — categories (translated) + FAQs (translated question/answer text+html), answer rendering
@@ -138,7 +153,7 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
 ## 4. Database Schema
 
 Prisma schema: [prisma/schema.prisma](prisma/schema.prisma). Postgres via Neon. Migrations in
-[prisma/migrations/](prisma/migrations/) (latest: `20260716120000_add_reminder_cadence_config`). Seed:
+[prisma/migrations/](prisma/migrations/) (latest: `20260717120000_add_venue_timezone`). Seed:
 [prisma/seed.ts](prisma/seed.ts) (`pnpm db:seed` — seeds subscription plans + device tiers).
 
 **Models (grouped):**
@@ -148,6 +163,7 @@ Prisma schema: [prisma/schema.prisma](prisma/schema.prisma). Postgres via Neon. 
 - **Support content:** `Faq`, `FaqTranslation`, `FaqCategory`, `FaqCategoryTranslation`,
   `KnowledgeArticle`, `KnowledgeArticleTranslation`, `AppUiString`, `AppUiStringTranslation`,
   `AppAsset`, `AppLanguage`, `AppReleaseConfig`.
+- **Hosts:** `Host`, `HostTranslation`.
 - **Access / auth:** `TourAccess`, `TourAccessTour`, `OtpChallenge`, `DeviceSession`,
   `DeviceRegistration`, `StaffProfile`, `User`.
 - **Payments:** `Subscription`, `Plan`, `SubscriptionPlan`, `DevicePricingTier`,
@@ -222,6 +238,7 @@ Base: `/api/v1`. Response envelope + errors via [src/lib/api/response.ts](src/li
   endpoints are **gone**; a route has no meaning without a floor.)
 - `tours/[tourId]/floors/[floorId]/spots`(+`[spotId]`), `.../spots/[spotId]/faqs`(+`[faqId]`), `.../spots/[spotId]/media`(+`[mediaId]`)
 - `tours/[tourId]/route`, `.../route/edges`(+`[edgeId]`), `.../route/generate`, `.../route/generate-footprints`
+- `tours/[tourId]/hosts`(+`[hostId]`) — on-site host CRUD
 - `tours/[tourId]/ai-knowledge`(+`[knowledgeId]`)
 - `tours/[tourId]/bundles/build`, `.../bundles/latest`, `.../bundles/latest/download`
 - `media`(+`[id]`), `faqs`(+`[id]`), `faq-categories`(+`[id]`), `knowledge-articles`(+`[id]`)
@@ -236,6 +253,8 @@ Base: `/api/v1`. Response envelope + errors via [src/lib/api/response.ts](src/li
 - `auth/otp/request`, `auth/otp/verify` (legacy, email-only grants), `auth/devices`
   — **no `auth/device/revoke`**: only the admin frees a device slot
 - `catalog/tours`, `tours/[tourId]/download`, `knowledge-pack`, `app-content`, `release-config`, `versions`
+- `tours/[tourId]/hosts` — published tour's hosts (inactive included by design)
+- `tours/[tourId]/hosts/[hostId]/directions` — OSRM walking route from the visitor
 - `me/entitlements`, `subscriptions/config`, `subscriptions/checkout`, `subscriptions/purchases/[id]`
 
 **Webhooks:** `webhooks/stripe`. **Auth proxy:** `/api/auth/[...path]` (Neon Auth).
@@ -297,8 +316,21 @@ in `aurelia-app`.
   not app code.
 - ⚠️ **`withDbRetry` coverage is narrow.** Currently applied to `appReleaseRepository.getConfig()`; other
   mobile read endpoints (catalog, tour-detail, download, knowledge-pack) are **not** yet wrapped.
-- ⚠️ **Working tree uncommitted.** As of last update, edits to `route-map-preview.tsx`, `tourList.tsx`,
-  `globals.css`, `card.tsx`, `send-otp-email.ts` are present but **not committed** (see `git status`).
+  Note `getVenueTimezone()` goes through `getConfig()`, so the host endpoints inherit the retry.
+- ⚠️ **`getConfig()` runs on *every* mobile request** (via `requireCompatibleApiVersion`), so any
+  column added to `AppReleaseConfig` becomes a hard dependency of the **entire** mobile API — not just
+  the feature that uses it. Adding `venueTimezone` to the schema while the DB lacked the column turned
+  every `/api/v1/app/*` endpoint into a 500 (catalog, download, entitlements — all of it), because the
+  generated client selects the column explicitly. **Always `migrate deploy` before shipping code that
+  touches this model** (expand first, then deploy). Old clients are unaffected by the new column — they
+  don't select it — so the migration is always safe to run ahead of the deploy.
+- ⏳ **The host feature is not localized.** `HostCard`/`HostStatusChip`/the not-active modal ship
+  hardcoded English ("Available now", "Offline", "Directions") while the rest of the app goes through
+  `useStrings`. Pre-existing; worth folding into the i18n pass.
+- ⚠️ **`Intl` timezone support is not guaranteed on Hermes.** The mobile availability mirror probes for
+  it once (`supportsTimezoneFormatting`) and falls back to the server's `isAvailableNow` when missing —
+  deliberately **not** to the device clock, which is the bug being fixed. If chips look wrong on device,
+  check that probe first.
 - ⏳ **API-version gate is permissive.** Clients without `x-api-version` are accepted (Phase-2 rollout);
   tighten once mobile clients all send the header.
 
@@ -319,6 +351,22 @@ in `aurelia-app`.
   constraints enforce one row per combination.
 - **Neon Auth for staff, custom OTP+device-session for mobile** — staff use cookie sessions; mobile uses
   API-key + hashed device-session tokens bound to a `TourAccess` grant.
+- **Wall-clock times read against `AppReleaseConfig.venueTimezone`, never a machine clock** — host
+  opening hours are bare `"HH:mm"` with no zone attached, so they are meaningless without one. The
+  server runs in **UTC on Vercel** and a visitor's phone carries whatever zone they travelled from, so
+  neither end may supply it: it has to be admin-editable config.
+  [venue-timezone.ts](src/lib/app-release/venue-timezone.ts) owns the only fallback string
+  (`DEFAULT_VENUE_TIMEZONE`, matching the DB column default) — do **not** hardcode a zone anywhere in
+  business logic. Wall-clock formatting goes through `venueWallClock` (`Intl` + `formatToParts` +
+  `hourCycle: "h23"`, so midnight is `"00"`, not `"24"`).
+- **The tour list has its own shallow include** (`tourListInclude` + `TourListItemDto`, spot *count*
+  only) separate from `tourIncludeRelations`. The deep include has 6 usages, is spread into
+  `tourBundleInclude`, and `mapAuditTour`/`mapTourForReadiness` derive their types from `findById`'s
+  shape — narrowing the shared one would ripple through all of them.
+- **Existence checks use a narrow `select`, never `tourRepository.findById`** — `findById` pulls the
+  full content graph (spots, translations, FAQs, media, route edges incl. `footprintGeo`,
+  aiKnowledge). `host.service.ts` and `tour-access`'s `assertTours` do this correctly.
+  ⚠️ `ai-knowledge.service.ts` and `spot.service.ts` still call `findById` just to check existence.
 
 ---
 
@@ -347,8 +395,8 @@ Runner: **Vitest 4** (`pnpm test`, `pnpm test:watch`, `pnpm test:coverage`). Con
 [vitest.config.ts](vitest.config.ts) — node environment, `src/**/*.test.ts`, v8 coverage scoped to
 `src/lib`, `src/modules`, `src/schemas`. Tests are co-located next to source (`*.test.ts`).
 
-**Status (Phase 1 — critical pure logic + business rules):** ✅ **88 tests / 12 files passing**;
-`tsc --noEmit` clean.
+**Status:** ✅ **183 tests / 22 files passing**; `pnpm check` clean (0 errors, 1 pre-existing
+`exhaustive-deps` warning in `host-form-dialog.tsx`).
 - **Pure logic:** `computePrice` (pricing), `toCanonicalJson`, bundle `sign`/`checksum` (HMAC/RSA/env
   selection), `isTransientDbError` + `withDbRetry` (fake timers), `hashSessionToken`, `slugify`,
   `AppError` subclasses, RBAC (`normalizeStaffRole`/`hasMinimumRole`/`canAccessRoute`), session mapping.
@@ -362,6 +410,46 @@ are **deferred** (Phases 4–5). Full plan: `~/.claude/plans/ask-what-is-use-shi
 ---
 
 ## 11. Changelog
+
+- **2026-07-17** — **Venue timezone (P0 bug fix) + two list/query perf fixes + host polish.** Outcome of
+  a full-project review; no new features.
+  - **Host availability was wrong in production.** `computeIsAvailableNow` read `now.getHours()` — the
+    *server's* clock, which is UTC on Vercel — against opening hours that are the *venue's* wall clock.
+    Proven: same instant, Rome host on 09:00–17:00, at 10:30 Rome the old code answered `false` under
+    `TZ=UTC` and `true` under `TZ=Europe/Rome`, so hosts read as offline for the first ~2 summer hours
+    of every shift. The old tests hid it by parsing `new Date("2025-01-15T12:00:00")` (**no `Z`**) as
+    *local* time, agreeing with themselves in any zone. Fix: new
+    **`AppReleaseConfig.venueTimezone`** (`String @default("Europe/Rome")`, in `REMOTE_CONFIG_FIELDS`
+    so an edit bumps `remoteConfigVersion`), admin IANA field in the release-config panel (invalid
+    zones are refused, not silently defaulted), shipped to mobile under `remote`. New
+    [venue-timezone.ts](src/lib/app-release/venue-timezone.ts) owns `DEFAULT_VENUE_TIMEZONE`,
+    `isValidTimezone`, `normalizeVenueTimezone`, `venueWallClock`. `computeIsAvailableNow` takes a
+    timezone; `toHostDto`/`toHostDtoList` thread it from `appReleaseRepository.getVenueTimezone()`
+    (all 9 call sites were already async, across 2 files). Tests rewritten with **absolute `Z`
+    timestamps** + explicit zones, and now pass identically under `TZ=UTC`/`Asia/Dhaka`/
+    `America/New_York`/`Pacific/Kiritimati` — because they're absolute, not because they're naive.
+    Migration `20260717120000_add_venue_timezone` rehearsed on a Neon branch → **"No difference
+    detected"** → branch deleted → **applied to production** (prod `migrate diff` also clean, status up
+    to date; the singleton row picked up `Europe/Rome` from the column default).
+    **Deployment-ordering lesson learned the hard way:** the schema change landed before the migration,
+    and because `getConfig()` runs on every mobile request, *every* `/api/v1/app/*` endpoint 500'd
+    against the un-migrated DB — not just hosts. Verified fixed end-to-end afterwards: `catalog/tours`
+    500 → **200**, and the app's home screen renders its floor cards again. See §7.
+  - **`assertTours` N+1 removed** — it looped `tourRepository.findById` (the full deep include: every
+    spot, translation, FAQ, media join, route edge with `footprintGeo`, aiKnowledge) once per tour
+    purely to check existence. Now one `findMany({ where: { id: { in } }, select: { id: true } })`.
+  - **Tour list stopped over-fetching** — `tourService.list` used the same deep include to render a
+    cover, title, status, slug and a spot *count*; the list mapper then discarded `route`,
+    `transitionPoints` and `aiKnowledge` entirely. New **`tourListInclude`** + `TourListItemDto`
+    (`spots: SpotDto[]` → `spotCount: number`, summed from per-floor `_count`), mirroring the pattern
+    `mobile-catalog.service.ts` already used. Measured on a copy of production: **88 → 14 joined rows
+    for one tour** (the multiplier is per tour per page — 4 spots carry 48 translations at 3 langs × 4
+    audiences). `toTourDtoList` deleted (the list was its only caller). The deep include is untouched.
+    Note: with **1 tour** in production today the absolute saving is small; this is about how it scales.
+  - **Host `update` double-write removed** — it disconnected the photo in its own query and then again
+    in the main update; a failure between the two detached the photo with no audit row.
+  - **Docs** — `host`/`host-directions`/`mobile-host` were entirely undocumented despite being
+    committed; test count was stale (88 → **183**).
 
 - **2026-07-16** — **Reminder cadence is now admin-controlled (remote config).** Extends Reminder v1:
   instead of a hardcoded D-3/D-2/D-1 at 09:00, staff can tune *when* the mobile prep reminders fire.

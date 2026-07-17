@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdateAppReleaseConfig } from "@/hooks/mutations/use-app-release-config-mutations";
 import { useAppReleaseConfig } from "@/hooks/queries/use-app-content";
+import { isValidTimezone } from "@/lib/app-release/venue-timezone";
 import type { UpdateAppReleaseConfigPayload } from "@/types/app-content";
 
 /**
@@ -171,6 +172,47 @@ export function AppReleaseConfigPanel() {
                 }
               }}
             />
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+          <div>
+            <p className="text-sm font-medium">Venue</p>
+            <p className="text-muted-foreground text-xs">
+              The venue&apos;s own clock. Host opening hours are read against it,
+              so it must be the site&apos;s timezone — not the server&apos;s and
+              not the visitor&apos;s.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="venueTimezone">Timezone (IANA)</Label>
+            <Input
+              id="venueTimezone"
+              defaultValue={config.venueTimezone ?? "Europe/Rome"}
+              placeholder="Europe/Rome"
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (!value || value === config.venueTimezone) {
+                  return;
+                }
+
+                // A typo here would silently shift every host's hours, so refuse
+                // it and say so rather than saving something unreadable.
+                if (!isValidTimezone(value)) {
+                  setMessage(
+                    `"${value}" is not a valid IANA timezone. Try e.g. Europe/Rome.`,
+                  );
+                  return;
+                }
+
+                void save({ venueTimezone: value });
+              }}
+            />
+            <p className="text-muted-foreground text-xs">
+              e.g. <code>Europe/Rome</code>, <code>America/New_York</code>.
+              Changing this re-evaluates every host&apos;s availability.
+            </p>
           </div>
         </div>
 

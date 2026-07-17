@@ -893,5 +893,10 @@ model AppReleaseConfig {
   reminderOffsetDays      Json          @default("[3,2,1]")
   reminderHour            Int           @default(9)
   reminderNudgeEnabled    Boolean       @default(true)
+  // The venue's wall-clock timezone (IANA). Host opening hours are bare "HH:mm"
+  // and mean nothing without it; the server runs in UTC and a visitor's device
+  // carries a foreign zone, so neither can supply it. The default here is a data
+  // default (admin-editable), not a business rule.
+  venueTimezone           String        @default("Europe/Rome")
   updatedAt             DateTime      @updatedAt
 }

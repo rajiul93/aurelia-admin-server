@@ -59,6 +59,32 @@ export const tourIncludeRelations = {
   },
 } satisfies Prisma.TourInclude;
 
+/**
+ * The list view's include. Deliberately separate from (and far shallower than)
+ * tourIncludeRelations: the list renders a cover, a title, a status, a slug and
+ * a spot count, so loading every spot with its translations, FAQs, media joins
+ * and route edges — for every tour on the page — was fetching megabytes to
+ * render a number. Spots hang off Floor, so the count is aggregated per floor.
+ *
+ * Keep this narrow. If the list ever needs a new field, add it here rather than
+ * reaching for the deep include.
+ */
+export const tourListInclude = {
+  translations: {
+    orderBy: { language: "asc" as const },
+  },
+  coverMedia: true,
+  floors: {
+    select: {
+      _count: { select: { spots: true } },
+    },
+  },
+} satisfies Prisma.TourInclude;
+
+export type TourListRecord = Prisma.TourGetPayload<{
+  include: typeof tourListInclude;
+}>;
+
 type FindManyOptions = {
   page: number;
   limit: number;
@@ -107,7 +133,7 @@ export const tourRepository = {
         where,
         skip,
         take,
-        include: tourIncludeRelations,
+        include: tourListInclude,
         orderBy: { createdAt: "desc" },
       }),
       prisma.tour.count({ where }),

@@ -7,6 +7,7 @@ import {
   normalizeReminderNudgeEnabled,
   normalizeReminderOffsetDays,
 } from "@/lib/app-release/reminder-cadence";
+import { normalizeVenueTimezone } from "@/lib/app-release/venue-timezone";
 import { updateAppReleaseConfigSchema } from "@/schemas/app-release-config.schema";
 
 function toAdminConfigDto(
@@ -34,6 +35,7 @@ function toAdminConfigDto(
     reminderNudgeEnabled: normalizeReminderNudgeEnabled(
       config.reminderNudgeEnabled,
     ),
+    venueTimezone: normalizeVenueTimezone(config.venueTimezone),
     updatedAt: config.updatedAt.toISOString(),
   };
 }

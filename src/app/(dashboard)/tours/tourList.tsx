@@ -148,7 +148,7 @@ export function TourList() {
                     <Badge variant={publishStatusVariant[tour.publishStatus]}>
                       {publishStatusLabels[tour.publishStatus]}
                     </Badge>
-                    <Badge variant="outline">{tour.spots.length} spots</Badge>
+                    <Badge variant="outline">{tour.spotCount} spots</Badge>
                     {APP_LANGUAGES.map((language) => (
                       <Badge
                         key={language}

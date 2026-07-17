@@ -82,6 +82,14 @@ export type Tour = {
   updatedAt: string;
 };
 
+/**
+ * What GET /tours returns per row. The list carries a spot count, not the
+ * spots — fetch a tour by id when you need its content.
+ */
+export type TourListItem = Omit<Tour, "spots"> & {
+  spotCount: number;
+};
+
 export type CreateTourPayload = {
   slug?: string;
   coverMediaId: string;

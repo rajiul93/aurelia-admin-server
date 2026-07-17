@@ -2,7 +2,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/api/errors"
 import { auditService, type AuditContext } from "@/lib/audit";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { tourBundleService } from "@/modules/tour-bundle";
-import { toTourDto, toTourDtoList } from "./tour.mapper";
+import { toTourDto, toTourListItemDtoList } from "./tour.mapper";
 import {
   getAvailableLifecycleActions,
   getTourReadiness,
@@ -90,7 +90,7 @@ export const tourService = {
     const { tours, total } = await tourRepository.findMany(query);
 
     return {
-      data: toTourDtoList(tours, query.language as AppLanguage | undefined),
+      data: toTourListItemDtoList(tours, query.language as AppLanguage | undefined),
       meta: {
         page: query.page,
         limit: query.limit,

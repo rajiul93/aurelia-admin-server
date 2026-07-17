@@ -47,6 +47,7 @@ export type AppReleaseConfig = {
   reminderOffsetDays: number[];
   reminderHour: number;
   reminderNudgeEnabled: boolean;
+  venueTimezone: string;
   updatedAt: string;
 };
 
@@ -66,4 +67,5 @@ export type UpdateAppReleaseConfigPayload = {
   reminderOffsetDays?: number[];
   reminderHour?: number;
   reminderNudgeEnabled?: boolean;
+  venueTimezone?: string;
 };

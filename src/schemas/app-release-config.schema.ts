@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { isValidTimezone } from "@/lib/app-release/venue-timezone";
+
 export const updateAppReleaseConfigSchema = z.object({
   publishStatus: z.enum(["DRAFT", "REVIEW", "PUBLISHED", "ARCHIVED"]).optional(),
   apiVersion: z.number().int().min(1).optional(),
@@ -22,6 +24,17 @@ export const updateAppReleaseConfigSchema = z.object({
     .optional(),
   reminderHour: z.number().int().min(0).max(23).optional(),
   reminderNudgeEnabled: z.boolean().optional(),
+  // The venue's wall-clock timezone, which host opening hours are read against.
+  // Rejected rather than silently defaulted: a typo here would quietly shift
+  // every host's hours, so the admin has to see the error.
+  venueTimezone: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(isValidTimezone, {
+      message: "Must be a valid IANA timezone, e.g. Europe/Rome",
+    })
+    .optional(),
 });
 
 export type UpdateAppReleaseConfigInput = z.infer<

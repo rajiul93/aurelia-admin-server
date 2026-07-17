@@ -1,5 +1,6 @@
 import type { AppReleaseConfig } from "@/generated/prisma/client";
 
+import { normalizeVenueTimezone } from "@/lib/app-release/venue-timezone";
 import type { MobileReleaseConfig } from "./mobile-release-config.types";
 
 function parseSupportedLanguages(value: unknown) {
@@ -55,6 +56,7 @@ export function mapMobileReleaseConfig(
       reminderOffsetDays: parseReminderOffsetDays(config.reminderOffsetDays),
       reminderHour: config.reminderHour,
       reminderNudgeEnabled: config.reminderNudgeEnabled,
+      venueTimezone: normalizeVenueTimezone(config.venueTimezone),
     },
   };
 }

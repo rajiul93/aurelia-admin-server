@@ -4,7 +4,6 @@ import { hashPin } from "@/lib/mobile/pin";
 import { normalizePhone } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 import { normalizeStartTime, tourDateToUtcNoon } from "@/lib/tour-date";
-import { tourRepository } from "@/modules/tour/tour.repository";
 import {
   toTourAccessDto,
   toTourAccessDtoList,
@@ -63,26 +62,32 @@ async function assertTours(tours: TourEntryInput[]) {
     }
   }
 
-  const rows: {
-    tourId: string;
-    tourDate: Date | null;
-    startTime: string | null;
-  }[] = [];
+  const tourIds = [...byId.keys()];
 
-  for (const entry of byId.values()) {
-    const tour = await tourRepository.findById(entry.tourId);
-    if (!tour) {
-      throw new ValidationError(`Tour not found: ${entry.tourId}`);
-    }
+  // One query, ids only. This used to loop tourRepository.findById per tour,
+  // which pulls the full deep include (every spot, translation, FAQ, media,
+  // route edge with its footprintGeo) — megabytes of object graph loaded and
+  // discarded just to answer "does this row exist".
+  const existing = await prisma.tour.findMany({
+    where: { id: { in: tourIds } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((tour) => tour.id));
 
-    rows.push({
-      tourId: entry.tourId,
-      tourDate: tourDateToUtcNoon(entry.tourDate),
-      startTime: normalizeStartTime(entry.startTime),
-    });
+  const missing = tourIds.find((tourId) => !existingIds.has(tourId));
+  if (missing) {
+    throw new ValidationError(`Tour not found: ${missing}`);
   }
 
-  return rows;
+  return tourIds.map((tourId) => {
+    const entry = byId.get(tourId)!;
+
+    return {
+      tourId,
+      tourDate: tourDateToUtcNoon(entry.tourDate),
+      startTime: normalizeStartTime(entry.startTime),
+    };
+  });
 }
 
 export const tourAccessService = {

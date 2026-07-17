@@ -14,10 +14,12 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import type { AudienceType } from "@/lib/i18n/audiences";
 import type { Media as MediaDto } from "@/types/media";
 import type { QuillContentJson } from "./tour.quill";
+import type { TourListRecord } from "./tour.repository";
 import type {
   SpotFaqDto,
   SpotMediaDto,
   TourDto,
+  TourListItemDto,
 } from "./tour.types";
 
 type TourWithRelations = Tour & {
@@ -186,9 +188,52 @@ export function toTourDto(
   };
 }
 
-export function toTourDtoList(
-  tours: TourWithRelations[],
+export function toTourListItemDto(
+  tour: TourListRecord,
   language?: AppLanguage,
-): TourDto[] {
-  return tours.map((tour) => toTourDto(tour, language));
+): TourListItemDto {
+  const translations = tour.translations.map((entry) => ({
+    language: entry.language as AppLanguage,
+    audience: entry.audience as AudienceType,
+    title: entry.title,
+    description: entry.description,
+    slug: entry.slug,
+  }));
+
+  const localized = language
+    ? translations.find((entry) => entry.language === language)
+    : undefined;
+
+  return {
+    id: tour.id,
+    slug: tour.slug,
+    placeId: tour.placeId,
+    coverMediaId: tour.coverMediaId,
+    coverMedia: mapMedia(tour.coverMedia),
+    publishStatus: tour.publishStatus,
+    tourBundleVersion: tour.tourBundleVersion,
+    mediaVersion: tour.mediaVersion,
+    aiKnowledgeVersion: tour.aiKnowledgeVersion,
+    routeVersion: tour.routeVersion,
+    publishedAt: tour.publishedAt?.toISOString() ?? null,
+    archivedAt: tour.archivedAt?.toISOString() ?? null,
+    translations,
+    spotCount: tour.floors.reduce((total, floor) => total + floor._count.spots, 0),
+    ...(localized
+      ? {
+          language,
+          title: localized.title,
+          description: localized.description,
+        }
+      : {}),
+    createdAt: tour.createdAt.toISOString(),
+    updatedAt: tour.updatedAt.toISOString(),
+  };
+}
+
+export function toTourListItemDtoList(
+  tours: TourListRecord[],
+  language?: AppLanguage,
+): TourListItemDto[] {
+  return tours.map((tour) => toTourListItemDto(tour, language));
 }

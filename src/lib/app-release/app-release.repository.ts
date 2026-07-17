@@ -2,6 +2,10 @@ import type { Prisma } from "@/generated/prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { withDbRetry } from "@/lib/prisma-retry";
+import {
+  DEFAULT_VENUE_TIMEZONE,
+  normalizeVenueTimezone,
+} from "@/lib/app-release/venue-timezone";
 import type { UpdateAppReleaseConfigInput } from "@/schemas/app-release-config.schema";
 
 const REMOTE_CONFIG_FIELDS = [
@@ -17,6 +21,7 @@ const REMOTE_CONFIG_FIELDS = [
   "reminderOffsetDays",
   "reminderHour",
   "reminderNudgeEnabled",
+  "venueTimezone",
 ] as const satisfies ReadonlyArray<keyof UpdateAppReleaseConfigInput>;
 
 export const appReleaseRepository = {
@@ -32,6 +37,16 @@ export const appReleaseRepository = {
         update: {},
       }),
     );
+  },
+
+  /**
+   * The venue's wall clock, for reading opening hours against. Goes through
+   * getConfig() so it inherits the cold-start retry, and is normalized here so
+   * no caller has to defend against a bad value in the column.
+   */
+  async getVenueTimezone() {
+    const config = await this.getConfig();
+    return normalizeVenueTimezone(config.venueTimezone);
   },
 
   async bumpAppContentVersion() {
@@ -71,6 +86,7 @@ export const appReleaseRepository = {
       reminderOffsetDays: input.reminderOffsetDays,
       reminderHour: input.reminderHour,
       reminderNudgeEnabled: input.reminderNudgeEnabled,
+      venueTimezone: input.venueTimezone,
     };
 
     if (input.publishStatus === "PUBLISHED") {
@@ -100,6 +116,7 @@ export const appReleaseRepository = {
         reminderOffsetDays: input.reminderOffsetDays ?? [3, 2, 1],
         reminderHour: input.reminderHour ?? 9,
         reminderNudgeEnabled: input.reminderNudgeEnabled ?? true,
+        venueTimezone: input.venueTimezone ?? DEFAULT_VENUE_TIMEZONE,
         publishedAt: input.publishStatus === "PUBLISHED" ? new Date() : null,
       },
       update: data,

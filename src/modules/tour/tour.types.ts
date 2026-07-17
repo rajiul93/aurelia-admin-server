@@ -85,3 +85,12 @@ export type TourDto = {
   createdAt: string;
   updatedAt: string;
 };
+
+/**
+ * The list row. Carries a spot *count* rather than the spots themselves —
+ * no list consumer has ever read the spot bodies, and loading them made the
+ * page fetch the whole content graph. Fetch a tour by id for the full shape.
+ */
+export type TourListItemDto = Omit<TourDto, "spots"> & {
+  spotCount: number;
+};

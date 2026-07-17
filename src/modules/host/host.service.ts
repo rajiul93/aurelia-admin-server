@@ -3,6 +3,7 @@ import { NotFoundError } from "@/lib/api/errors";
 import { auditService, type AuditContext } from "@/lib/audit/audit.service";
 import { mediaService } from "@/modules/media/media.service";
 import { prisma } from "@/lib/prisma";
+import { appReleaseRepository } from "@/lib/app-release/app-release.repository";
 import { hostRepository, hostIncludeRelations } from "./host.repository";
 import { toHostDto, toHostDtoList } from "./host.mapper";
 import type { CreateHostInput, UpdateHostInput } from "./host.schema";
@@ -35,13 +36,19 @@ async function validatePhotoMedia(photoMediaId?: string | null) {
 export const hostService = {
   async listByTour(tourId: string) {
     await ensureTourExists(tourId);
-    const hosts = await hostRepository.findByTourId(tourId);
-    return toHostDtoList(hosts);
+    const [hosts, venueTimezone] = await Promise.all([
+      hostRepository.findByTourId(tourId),
+      appReleaseRepository.getVenueTimezone(),
+    ]);
+    return toHostDtoList(hosts, venueTimezone);
   },
 
   async getById(tourId: string, hostId: string) {
-    const host = await ensureHost(tourId, hostId);
-    return toHostDto(host);
+    const [host, venueTimezone] = await Promise.all([
+      ensureHost(tourId, hostId),
+      appReleaseRepository.getVenueTimezone(),
+    ]);
+    return toHostDto(host, venueTimezone);
   },
 
   async create(tourId: string, input: CreateHostInput, context: AuditContext) {
@@ -78,28 +85,25 @@ export const hostService = {
       include: hostIncludeRelations,
     });
 
+    const venueTimezone = await appReleaseRepository.getVenueTimezone();
+    const dto = toHostDto(host, venueTimezone);
+
     await auditService.log({
       module: "host",
       actionType: "CREATE",
       entityId: host.id,
-      newValue: toHostDto(host),
+      newValue: dto,
       context,
     });
 
-    return toHostDto(host);
+    return dto;
   },
 
   async update(hostId: string, tourId: string, input: UpdateHostInput, context: AuditContext) {
     const existingHost = await ensureHost(tourId, hostId);
 
-    if (input.photoMediaId !== undefined) {
-      if (input.photoMediaId === null) {
-        await hostRepository.update(hostId, {
-          photoMedia: { disconnect: true },
-        });
-      } else if (input.photoMediaId) {
-        await validatePhotoMedia(input.photoMediaId);
-      }
+    if (input.photoMediaId) {
+      await validatePhotoMedia(input.photoMediaId);
     }
 
     const updateData: Prisma.HostUpdateInput = {
@@ -143,16 +147,19 @@ export const hostService = {
 
     const host = await hostRepository.update(hostId, updateData);
 
+    const venueTimezone = await appReleaseRepository.getVenueTimezone();
+    const dto = toHostDto(host, venueTimezone);
+
     await auditService.log({
       module: "host",
       actionType: "UPDATE",
       entityId: hostId,
-      previousValue: toHostDto(existingHost),
-      newValue: toHostDto(host),
+      previousValue: toHostDto(existingHost, venueTimezone),
+      newValue: dto,
       context,
     });
 
-    return toHostDto(host);
+    return dto;
   },
 
   async delete(hostId: string, tourId: string, context: AuditContext) {
@@ -160,11 +167,13 @@ export const hostService = {
 
     await hostRepository.delete(hostId);
 
+    const venueTimezone = await appReleaseRepository.getVenueTimezone();
+
     await auditService.log({
       module: "host",
       actionType: "DELETE",
       entityId: hostId,
-      previousValue: toHostDto(host),
+      previousValue: toHostDto(host, venueTimezone),
       context,
     });
   },

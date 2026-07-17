@@ -1,5 +1,6 @@
 import { NotFoundError } from "@/lib/api/errors";
 import { prisma } from "@/lib/prisma";
+import { appReleaseRepository } from "@/lib/app-release/app-release.repository";
 import { hostRepository } from "@/modules/host/host.repository";
 import { toHostDtoList } from "@/modules/host/host.mapper";
 
@@ -19,7 +20,10 @@ export const mobileHostService = {
       throw new NotFoundError("Tour not found");
     }
 
-    const hosts = await hostRepository.findByTourId(tourId);
-    return toHostDtoList(hosts);
+    const [hosts, venueTimezone] = await Promise.all([
+      hostRepository.findByTourId(tourId),
+      appReleaseRepository.getVenueTimezone(),
+    ]);
+    return toHostDtoList(hosts, venueTimezone);
   },
 };

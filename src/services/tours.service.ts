@@ -5,6 +5,7 @@ import type {
   PublishStatus,
   Tour,
   TourLifecycleAction,
+  TourListItem,
   TourReadiness,
   UpdateTourPayload,
 } from "@/types/tour";
@@ -12,7 +13,7 @@ import type {
 export const toursService = {
   list(params?: ListParams & { publishStatus?: PublishStatus; language?: string }) {
     return apiClient
-      .get<ApiSuccess<Tour[]>>("/tours", { params })
+      .get<ApiSuccess<TourListItem[]>>("/tours", { params })
       .then((response) => response.data);
   },
 

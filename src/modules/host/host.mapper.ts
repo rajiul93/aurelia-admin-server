@@ -3,7 +3,8 @@ import type { HostDto } from "./host.types";
 import { computeIsAvailableNow } from "./host.availability";
 
 export function toHostDto(
-  host: Host & { photoMedia: Media | null; translations: HostTranslation[] }
+  host: Host & { photoMedia: Media | null; translations: HostTranslation[] },
+  venueTimezone: string
 ): HostDto {
   return {
     id: host.id,
@@ -20,7 +21,8 @@ export function toHostDto(
     isAvailableNow: computeIsAvailableNow(
       host.isActive,
       host.availableFrom,
-      host.availableTo
+      host.availableTo,
+      venueTimezone
     ),
     sortOrder: host.sortOrder,
     translations: host.translations.map((t) => ({
@@ -33,7 +35,8 @@ export function toHostDto(
 }
 
 export function toHostDtoList(
-  hosts: Array<Host & { photoMedia: Media | null; translations: HostTranslation[] }>
+  hosts: Array<Host & { photoMedia: Media | null; translations: HostTranslation[] }>,
+  venueTimezone: string
 ): HostDto[] {
-  return hosts.map(toHostDto);
+  return hosts.map((host) => toHostDto(host, venueTimezone));
 }
