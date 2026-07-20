@@ -9,7 +9,7 @@
 
 **Status legend:** ✅ Completed · 🚧 In Progress · ⚠️ Known Issue · ⏳ Pending · ❌ Not Started
 
-Last updated: **2026-07-17**
+Last updated: **2026-07-20**
 
 ---
 
@@ -284,6 +284,43 @@ in `aurelia-app`.
 
 ## 7. Known Issues & Limitations (⚠️)
 
+**Open backlog from the 2026-07-20 review** (the four fixed items are in §11):
+
+- ⏳ **Paid mobile content is gated by the shared API key only.** `knowledge-pack`, `tours/[id]/hosts`
+  and host `directions` call `requireMobileRequest` (API key + version) rather than
+  `requireMobileSession`, unlike `download`, which also checks the grant. The key ships inside the
+  mobile binary and is extractable. `catalog`/`release-config`/`app-content` are reachable before
+  unlock **by design** — do not change those. **Requires coordination with `aurelia-app`** before
+  moving anything to `requireMobileSession`.
+- ⚠️ **Rate limiting is per-instance and never evicts.** [rate-limit.ts](src/lib/mobile/rate-limit.ts)
+  is a module-level `Map`: on serverless the effective limit is `limit × instances` and resets on
+  cold start, and expired buckets are only overwritten if the same key returns, so attacker-chosen
+  `deviceId`s grow it without bound. The DB-backed 5-attempt PIN lockout is the real brute-force
+  defense — keep it. Needs Redis/Upstash to be meaningful.
+- ⚠️ **Every mobile download rebuilds and re-signs the whole bundle.**
+  `mobile-download.service.ts:41` passes `force: true`, so `bundleIsCurrent` can never hit the cache;
+  each request reloads the deep tour graph, re-signs, and writes an **audit row** — burying real
+  staff actions in the audit log.
+- ⚠️ **`requestOtp` is an email-enumeration oracle** (`mobile-auth.service.ts:293-295`) — throws
+  "No tour access found for this email." for unknown emails. Contradicts the deliberate
+  same-message design in `unlock` (lines 89-93). Legacy path; `verifyOtp` gets it right.
+- ⚠️ **Media MIME type is client-supplied and never sniffed** (`media.controller.ts:29`) — only
+  string-matched against an allowlist. The extension no longer follows it (fixed §11), but
+  magic-byte validation is still missing. Also, the request body is fully buffered
+  (`arrayBuffer()`) *before* the size cap is applied, so concurrent large POSTs can OOM.
+- ⏳ **No `error.tsx` / `loading.tsx` / `not-found.tsx` anywhere** (0 across 44 pages) — a render
+  throw in any dashboard page hits the default Next error screen with no recovery.
+- ⏳ **No toast system and no `onError` on any mutation** (0 of 17 hooks). Deletes succeed and fail
+  silently; 19 `window.confirm` and 1 `window.alert` stand in for confirm/feedback UI. There is no
+  `AlertDialog`/`ConfirmDialog` primitive yet.
+- ⏳ **No structured logging, error reporting, or runtime env validation.** Errors reach stdout via
+  `console.*` only; missing env vars fail at first request rather than at boot.
+- ⚠️ **`noUncheckedIndexedAccess` is off** — `tsconfig` is otherwise strict. Real unsound spots:
+  `tour-route.service.ts:149`, `tour-access.service.ts:83`.
+- ⏳ **Dead code:** `role-gate.tsx` (now superseded by `requireStaffRole` + `access/layout.tsx`),
+  `placeholder-page.tsx`, `ui/accordion.tsx`, `use-create-user.ts`, `isStaffUser`,
+  `validateImageFileFromBuffer`.
+
 - ⏳ **The phone+PIN migration has not been applied to production.** `20260715031500_switch_tour_access_to_phone_pin`
   **deletes every existing TourAccess** (and its device sessions). Rehearsed clean on a Neon branch;
   run `prisma migrate deploy` against production only when you are ready to re-enter buyers by hand.
@@ -395,8 +432,14 @@ Runner: **Vitest 4** (`pnpm test`, `pnpm test:watch`, `pnpm test:coverage`). Con
 [vitest.config.ts](vitest.config.ts) — node environment, `src/**/*.test.ts`, v8 coverage scoped to
 `src/lib`, `src/modules`, `src/schemas`. Tests are co-located next to source (`*.test.ts`).
 
-**Status:** ✅ **183 tests / 22 files passing**; `pnpm check` clean (0 errors, 1 pre-existing
+**Status:** ✅ **205 tests / 26 files passing**; `pnpm check` clean (0 errors, 1 pre-existing
 `exhaustive-deps` warning in `host-form-dialog.tsx`).
+
+⚠️ **The entire HTTP layer is untested** — 71 route handlers, 30 controllers, 21 of 30 modules have
+no tests, including `user`, `media`, and all 9 `mobile-*` modules. `vitest.config.ts` includes only
+`src/**/*.test.ts`, so **no `.tsx` test can run** even if written. The coverage that exists is
+well-chosen pure logic; the gap is precisely the I/O boundary — which is where the 2026-07-20
+security bugs lived.
 - **Pure logic:** `computePrice` (pricing), `toCanonicalJson`, bundle `sign`/`checksum` (HMAC/RSA/env
   selection), `isTransientDbError` + `withDbRetry` (fake timers), `hashSessionToken`, `slugify`,
   `AppError` subclasses, RBAC (`normalizeStaffRole`/`hasMinimumRole`/`canAccessRoute`), session mapping.
@@ -410,6 +453,52 @@ are **deferred** (Phases 4–5). Full plan: `~/.claude/plans/ask-what-is-use-shi
 ---
 
 ## 11. Changelog
+
+- **2026-07-20** — **Full-project review + four security fixes.** No new features; outcome of an
+  end-to-end review of backend, admin frontend, and tooling. Findings and the remaining backlog are
+  in §7; the report itself is not committed.
+  - **`/api/v1/users` had no authentication at all.** `users/route.ts` and `users/[id]/route.ts` were
+    wrapped only in `withErrorHandler` — no `requireStaffSessionFromRequest`, and there is no
+    `middleware.ts` (only `src/proxy.ts`, which skips `/api/`). Verified live: `GET /api/v1/users`
+    returned **200** with every consumer's name, age, email, countryCode and phone; `DELETE` removed
+    records; `POST` accepted a `role`. **Not** privilege escalation — staff role comes from the Neon
+    Auth session (`mapNeonUserToAuthUser`), not the `User` table — but a straight PII leak. Every
+    method now guards at both the route and the controller; `delete` needs ADMIN, and assigning
+    `role` needs SUPERADMIN. Now **401**. Note the admin UI has *no* users page — `usersService` and
+    `useCreateUser` are unused, so this was a dead client with a live open endpoint. Consider
+    removing the module if consumer-user admin is not a real feature.
+  - **RBAC route rules were never enforced.** `ROUTE_ACCESS_RULES` restricts `/access` to
+    SUPERADMIN/ADMIN, but `canAccessRoute` is only called from `proxy.ts:105` — inside
+    `if (isProtectedRoute(pathname))`, and `PROTECTED_ROUTE_PREFIXES` is just `["/dashboard"]` — and
+    from `role-gate.tsx`, which is **imported nowhere**. `(dashboard)/layout.tsx` and
+    `requireStaffSessionFromRequest` both check *staff-ness only*, never role. So a **MANAGER could
+    open `/access` by URL and call the tour-access API** — buyer phone numbers, grant creation,
+    device-session revocation. `rbac.test.ts:45` asserts MANAGER is denied and passes; the function
+    was correct, nothing called it. New **`requireStaffRole(minRole)`** in
+    [require-staff.ts](src/lib/api/require-staff.ts) (reuses the previously-unused `hasMinimumRole`)
+    now gates all five `/api/v1/tour-access*` routes at ADMIN, plus a server-side
+    [access/layout.tsx](src/app/(dashboard)/access/layout.tsx) so the page redirects too. The API is
+    the boundary; the layout only spares a MANAGER a page of failed requests.
+  - **Mobile API-key check disabled itself off-production.** `requireMobileApiKey` returned early
+    when `MOBILE_API_KEY` was unset and `NODE_ENV !== "production"`, so staging/preview/plain
+    containers served the whole mobile API unauthenticated. The bypass is now explicit
+    (`ALLOW_INSECURE_MOBILE_API=1`), never inferred from `NODE_ENV`. Key comparison moved to
+    `timingSafeEqual` over SHA-256 digests — hashing first because `timingSafeEqual` throws on a
+    length mismatch and would otherwise leak the configured length.
+  - **Session/OTP peppers fell back to constants committed in this repo.** `session-token.ts` used
+    `|| "aurelia-dev-pepper"` with no production guard, so a misconfigured deploy hashed every device
+    session with a value an attacker can read here — enough to forge tokens from a DB dump. New
+    [lib/mobile/pepper.ts](src/lib/mobile/pepper.ts) `requirePepper()` follows the `bundle/sign.ts`
+    precedent: dev fallback off production, throw on it. ⚠️ **Confirm `MOBILE_SESSION_PEPPER` and
+    `MOBILE_OTP_PEPPER` are set in the production environment before deploying this** — if they are
+    unset today, the mobile API will start failing loudly (the safe failure), and *setting* a new
+    pepper invalidates every existing device session while device removal is admin-only.
+  - **Upload object keys took their extension from the uploaded filename.** `generateObjectKey`
+    preferred `path.extname(originalName)` over the validated MIME type, so `payload.html` declared
+    as `image/png` was stored as `.html` in a public bucket. Extension now derives from the MIME map
+    only. (MIME itself is still client-supplied and unsniffed — magic-byte validation is open, §7.)
+  - **Tests:** 183 → **205** (26 files) — `require-staff`, `api-key`, `pepper`, `r2.upload`
+    (`generateObjectKey`). `pnpm check` clean apart from the pre-existing `exhaustive-deps` warning.
 
 - **2026-07-17** — **Venue timezone (P0 bug fix) + two list/query perf fixes + host polish.** Outcome of
   a full-project review; no new features.

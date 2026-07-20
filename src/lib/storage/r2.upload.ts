@@ -25,9 +25,11 @@ function sanitizeFileName(originalName: string) {
 }
 
 export function generateObjectKey(originalName: string, mimeType: string) {
-  const extensionFromName = path.extname(originalName).slice(1).toLowerCase();
-  const extension =
-    extensionFromName || MIME_EXTENSION_MAP[mimeType] || "bin";
+  // The extension comes from the validated MIME type, never from the uploaded
+  // filename. The filename is attacker-controlled, so preferring it let a
+  // caller store "poster.html" (declared image/png) in a public bucket, where
+  // the extension — not our Content-Type — may decide how a CDN serves it.
+  const extension = MIME_EXTENSION_MAP[mimeType] ?? "bin";
   const datePrefix = new Date().toISOString().slice(0, 10);
   const safeName = sanitizeFileName(
     path.basename(originalName, path.extname(originalName)),

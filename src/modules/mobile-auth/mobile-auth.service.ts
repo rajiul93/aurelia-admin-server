@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/errors";
 import { isOtpEmailConfigured } from "@/lib/email/config";
 import { sendOtpEmail } from "@/lib/email/send-otp-email";
+import { requirePepper } from "@/lib/mobile/pepper";
 import { verifyPin } from "@/lib/mobile/pin";
 import {
   createSessionToken,
@@ -30,7 +31,7 @@ function normalizeEmail(email: string) {
 }
 
 function hashOtpCode(code: string) {
-  const pepper = process.env.MOBILE_OTP_PEPPER?.trim() || "aurelia-otp-pepper";
+  const pepper = requirePepper("MOBILE_OTP_PEPPER", "aurelia-otp-pepper");
   return createHash("sha256").update(`${pepper}:${code}`).digest("hex");
 }
 
