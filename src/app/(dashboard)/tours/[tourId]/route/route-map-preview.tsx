@@ -128,7 +128,9 @@ export function RouteMapPreview({ spots, edges }: RouteMapPreviewProps) {
           );
         })}
 
-        {spots.map((spot, index) => {
+        {[...spots]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((spot) => {
           if (spot.latitude === null || spot.longitude === null) {
             return null;
           }
@@ -161,7 +163,7 @@ export function RouteMapPreview({ spots, edges }: RouteMapPreviewProps) {
                 fontSize="11"
                 fontWeight="600"
               >
-                {index + 1}
+                {spot.sortOrder}
               </text>
             </g>
           );

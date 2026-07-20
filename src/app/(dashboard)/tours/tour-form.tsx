@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,12 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  TOUR_PANEL_CARD,
+  TOUR_PANEL_HEADER,
+} from "@/components/tours/publish-status-badge";
 import {
   Form,
   FormImageUpload,
@@ -42,6 +45,7 @@ import {
 import { emptyAudienceLanguageRecord } from "@/lib/i18n/translations";
 import { resolveMediaUpload } from "@/lib/media/client";
 import { slugify } from "@/lib/slug";
+import { cn } from "@/lib/utils";
 import {
   tourFormSchema,
   type TourFormInput,
@@ -157,7 +161,6 @@ export function TourForm({ mode, defaultValues }: TourFormProps) {
   }
 
   const isSubmitting = form.formState.isSubmitting;
-  const tourId = defaultValues?.id;
 
   return (
     <Form form={form} onSubmit={handleSubmit} className="space-y-6">
@@ -167,94 +170,113 @@ export function TourForm({ mode, defaultValues }: TourFormProps) {
         </Alert>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tour details</CardTitle>
-          <CardDescription>
-            Catalog metadata only. Manage spots, media, and FAQs separately
-            after saving this tour.
+      <Card className={TOUR_PANEL_CARD}>
+        <div className={cn(TOUR_PANEL_HEADER, "px-5 py-4 md:px-6")}>
+          <div className="flex items-center gap-2">
+            <FileText className="text-primary size-4" />
+            <CardTitle className="text-brand-deep text-base md:text-lg">
+              Tour details
+            </CardTitle>
+          </div>
+          <CardDescription className="mt-1 max-w-xl text-xs md:text-sm">
+            Catalog metadata for the mobile app. Floors, spots, and routes are
+            managed separately after saving.
           </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <FormInput
-            name="slug"
-            label="Tour slug"
-            placeholder="colosseum-night-tour"
-            disabled={isSubmitting}
-            description="Leave blank to generate from the English title. New tours start as Draft."
-          />
+        </div>
+        <CardContent className="space-y-6 px-5 py-6 md:px-6">
+          <div className="grid gap-5 md:grid-cols-2 md:items-start">
+            <FormInput
+              name="slug"
+              label="Tour slug"
+              placeholder="colosseum-night-tour"
+              disabled={isSubmitting}
+              description="Leave blank to generate from the English title."
+            />
+            <div className="md:col-span-2">
+              <FormImageUpload
+                name="cover"
+                label="Cover image"
+                description="Required. Shown in the mobile catalog."
+                existingMedia={defaultValues?.coverMedia ?? undefined}
+                isUploading={isSubmitting && uploadProgress !== null}
+                uploadProgress={uploadProgress ?? undefined}
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
 
-          <FormImageUpload
-            name="cover"
-            label="Cover image"
-            description="Required. Used in the mobile catalog."
-            existingMedia={defaultValues?.coverMedia ?? undefined}
-            isUploading={isSubmitting && uploadProgress !== null}
-            uploadProgress={uploadProgress ?? undefined}
-            disabled={isSubmitting}
-          />
+          <div className="rounded-xl bg-muted/25 p-4 ring-1 ring-border/60 md:p-5">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <AudienceTabs
+                value={activeAudience}
+                onChange={setActiveAudience}
+              />
+              <LanguageTabs
+                value={activeLanguage}
+                onChange={setActiveLanguage}
+              />
+            </div>
 
-          <AudienceTabs value={activeAudience} onChange={setActiveAudience} />
-          <LanguageTabs value={activeLanguage} onChange={setActiveLanguage} />
-
-          {AUDIENCE_TYPES.map((audience) =>
-            APP_LANGUAGES.map((language) => (
-              <div
-                key={`${audience}-${language}`}
-                className={
-                  audience === activeAudience && language === activeLanguage
-                    ? "space-y-4"
-                    : "hidden"
-                }
-              >
-                <p className="text-muted-foreground text-sm">
-                  {AUDIENCE_LABELS[audience]} · {LANGUAGE_LABELS[language]}
-                </p>
-                <FormInput
-                  name={`translations.${audience}.${language}.title`}
-                  label="Title"
-                  disabled={isSubmitting}
-                />
-                <FormTextarea
-                  name={`translations.${audience}.${language}.description`}
-                  label="Description"
-                  rows={3}
-                  disabled={isSubmitting}
-                />
-                <FormInput
-                  name={`translations.${audience}.${language}.slug`}
-                  label="URL slug"
-                  disabled={isSubmitting}
-                />
-              </div>
-            )),
-          )}
+            {AUDIENCE_TYPES.map((audience) =>
+              APP_LANGUAGES.map((language) => (
+                <div
+                  key={`${audience}-${language}`}
+                  className={
+                    audience === activeAudience && language === activeLanguage
+                      ? "space-y-4"
+                      : "hidden"
+                  }
+                >
+                  <p className="text-brand-deep text-xs font-semibold tracking-wider uppercase">
+                    {AUDIENCE_LABELS[audience]} · {LANGUAGE_LABELS[language]}
+                  </p>
+                  <FormInput
+                    name={`translations.${audience}.${language}.title`}
+                    label="Title"
+                    disabled={isSubmitting}
+                  />
+                  <FormTextarea
+                    name={`translations.${audience}.${language}.description`}
+                    label="Description"
+                    rows={4}
+                    disabled={isSubmitting}
+                  />
+                  <FormInput
+                    name={`translations.${audience}.${language}.slug`}
+                    label="URL slug"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              )),
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={isSubmitting}>
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-3 rounded-xl border border-brand-tan/50 bg-linear-to-r from-brand-cream/40 via-background to-brand-tan/20 p-4 shadow-sm ring-1 ring-border/40",
+          isEdit && "sticky bottom-4 z-10 backdrop-blur-sm",
+        )}
+      >
+        <Button type="submit" disabled={isSubmitting} size="lg">
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               Saving...
             </>
           ) : isEdit ? (
-            "Save tour"
+            "Save changes"
           ) : (
             "Create tour"
           )}
         </Button>
-        {isEdit && tourId ? (
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link href={`/tours/${tourId}/spots`} />}
-          >
-            Manage spots
-          </Button>
-        ) : null}
-        <Button variant="outline" nativeButton={false} render={<Link href="/tours" />}>
+        <Button
+          variant="outline"
+          className="border-brand-tan/70"
+          nativeButton={false}
+          render={<Link href="/tours" />}
+        >
           Cancel
         </Button>
       </div>

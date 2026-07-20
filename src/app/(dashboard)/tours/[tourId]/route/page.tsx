@@ -1,26 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Route, Trash2, Wand2, Footprints } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import {
+  CheckCircle2,
+  Circle,
+  Footprints,
+  Layers,
+  Loader2,
+  MapPin,
+  Trash2,
+  Wand2,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Form, FormInput, FormSelect, FormTextarea } from "@/components/form";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
-  useCreateRouteEdge,
   useDeleteRouteEdge,
   useGenerateRouteFootprints,
   useGenerateTourRoute,
@@ -28,113 +27,140 @@ import {
 import { useFloors } from "@/hooks/queries/use-floors";
 import { useSpots } from "@/hooks/queries/use-spots";
 import { useTourRoute } from "@/hooks/queries/use-tour-route";
-import { useTour } from "@/hooks/queries/use-tours";
-import {
-  getPreferredAudienceTranslation,
-  getPreferredTranslation,
-} from "@/lib/i18n/translations";
-import {
-  parseFootprintText,
-  routeEdgeFormSchema,
-  type RouteEdgeFormInput,
-} from "@/schemas/tour-route-form.schema";
+import { getApiErrorMessage } from "@/lib/api/error-message";
+import { getPreferredAudienceTranslation } from "@/lib/i18n/translations";
+import { cn } from "@/lib/utils";
+import type { RouteEdge } from "@/types/tour-route";
+import { AddRouteEdgeDialog } from "./add-route-edge-dialog";
 import { RouteMapPreview } from "./route-map-preview";
+
+function footprintStatus(edge: RouteEdge) {
+  if (edge.footprintGeo && edge.footprintGeo.length >= 2) {
+    return {
+      label: `${edge.footprintGeo.length} pts`,
+      detail: "Walking path",
+      className:
+        "bg-emerald-500/12 text-emerald-900 ring-emerald-500/25 dark:text-emerald-200",
+    };
+  }
+  return {
+    label: "Straight line",
+    detail: "Run Generate footprints",
+    className: "bg-amber-500/12 text-amber-950 ring-amber-500/25 dark:text-amber-100",
+  };
+}
+
+function RouteTableSkeleton() {
+  return (
+    <Card className="gap-0 overflow-hidden p-0 py-0">
+      <CardContent className="p-0 pt-0">
+        <div className="divide-y">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex gap-4 px-4 py-4">
+              <Skeleton className="h-8 w-10" />
+              <Skeleton className="h-8 flex-1" />
+              <Skeleton className="h-8 w-32" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function TourRoutePage() {
   const params = useParams<{ tourId: string }>();
   const tourId = params.tourId;
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [pickedFloorId, setPickedFloorId] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const floorIdFromUrl = searchParams.get("floorId");
 
-  const { data: tourResponse } = useTour(tourId);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   const { data: floorsResponse, isLoading: floorsLoading } = useFloors(tourId);
   const { data: spotsResponse, isLoading: spotsLoading } = useSpots(tourId);
 
   const floors = useMemo(
-    () => floorsResponse?.data ?? [],
+    () =>
+      [...(floorsResponse?.data ?? [])].sort((a, b) => a.floorNo - b.floorNo),
     [floorsResponse?.data],
   );
 
-  // Floors arrive after the first render, so fall back to the first one until
-  // the user picks a floor themselves.
-  const selectedFloorId = pickedFloorId || (floors[0]?.id ?? "");
-  const setSelectedFloorId = setPickedFloorId;
+  const selectedFloorId = useMemo(() => {
+    if (
+      floorIdFromUrl &&
+      floors.some((floor) => floor.id === floorIdFromUrl)
+    ) {
+      return floorIdFromUrl;
+    }
+    return floors[0]?.id ?? "";
+  }, [floorIdFromUrl, floors]);
+
+  const selectFloor = useCallback(
+    (floorId: string) => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("floorId", floorId);
+      router.replace(`/tours/${tourId}/route?${next.toString()}`, {
+        scroll: false,
+      });
+    },
+    [router, searchParams, tourId],
+  );
 
   const { data: routeResponse, isLoading: routeLoading, isError, error } =
     useTourRoute(tourId, selectedFloorId);
 
   const askConfirm = useConfirm();
-  const createEdge = useCreateRouteEdge(tourId, selectedFloorId);
   const deleteEdge = useDeleteRouteEdge(tourId, selectedFloorId);
   const generateRoute = useGenerateTourRoute(tourId, selectedFloorId);
   const generateFootprints = useGenerateRouteFootprints(tourId, selectedFloorId);
 
-  const tour = tourResponse?.data;
-  const edges = routeResponse?.data?.edges ?? [];
+  const edges = useMemo(
+    () =>
+      [...(routeResponse?.data?.edges ?? [])].sort(
+        (a, b) => a.sortOrder - b.sortOrder,
+      ),
+    [routeResponse?.data?.edges],
+  );
 
-  // A route only connects spots on its own floor — crossing floors is what a
-  // transition point is for.
   const spots = useMemo(
     () =>
-      (spotsResponse?.data ?? []).filter(
-        (spot) => spot.floorId === selectedFloorId,
-      ),
+      [...(spotsResponse?.data ?? [])]
+        .filter((spot) => spot.floorId === selectedFloorId)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
     [spotsResponse?.data, selectedFloorId],
   );
 
-  const form = useForm<RouteEdgeFormInput>({
-    resolver: zodResolver(routeEdgeFormSchema),
-    defaultValues: {
-      fromSpotId: "",
-      toSpotId: "",
-      sortOrder: edges.length,
-      footprintText: "",
-    },
-  });
+  const spotsWithCoords = spots.filter(
+    (spot) => spot.latitude != null && spot.longitude != null,
+  ).length;
 
-  const spotOptions = spots.map((spot) => {
-    const title =
-      getPreferredTranslation(spot.translations)?.title ??
-      `Spot ${spot.sortOrder}`;
+  const edgesWithFootprints = edges.filter(
+    (edge) => edge.footprintGeo && edge.footprintGeo.length >= 2,
+  ).length;
 
-    return {
-      label: `${spot.sortOrder}. ${title}`,
-      value: spot.id,
-    };
-  });
+  const hasFloors = floors.length > 0;
+  const isLoading = floorsLoading || spotsLoading || routeLoading;
 
-  async function onSubmit(values: RouteEdgeFormInput) {
-    setSubmitError(null);
+  const stepSpotsDone = spots.length >= 2;
+  const stepRouteDone = edges.length > 0;
+  const stepFootprintsDone =
+    edges.length > 0 && edgesWithFootprints === edges.length;
 
-    try {
-      const footprintGeo = parseFootprintText(values.footprintText);
-      await createEdge.mutateAsync({
-        fromSpotId: values.fromSpotId,
-        toSpotId: values.toSpotId,
-        sortOrder: values.sortOrder,
-        footprintGeo,
-      });
-      form.reset({
-        fromSpotId: values.toSpotId,
-        toSpotId: "",
-        sortOrder: values.sortOrder + 1,
-        footprintText: "",
-      });
-    } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Could not add route edge.",
-      );
-    }
+  function floorShortLabel(floor: (typeof floors)[number]) {
+    const name = getPreferredAudienceTranslation(floor.translations)?.name;
+    return name ? `${floor.floorNo}. ${name}` : `Floor ${floor.floorNo}`;
   }
 
   async function handleGenerate() {
     setSubmitError(null);
 
     const confirmed = await askConfirm({
-      title: "Regenerate this route?",
+      title: "Build route from spots?",
       description:
-        "The current route is replaced with edges ordered by spot sort order.",
-      confirmLabel: "Regenerate",
+        "Creates a chain of edges in spot sort order and replaces any existing edges on this floor.",
+      confirmLabel: "Build route",
       destructive: true,
     });
 
@@ -144,10 +170,9 @@ export default function TourRoutePage() {
 
     try {
       await generateRoute.mutateAsync();
-      form.setValue("sortOrder", Math.max(spots.length - 1, 0));
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Could not generate route.",
+        getApiErrorMessage(err, "Could not generate route."),
       );
     }
   }
@@ -157,7 +182,8 @@ export default function TourRoutePage() {
 
     const confirmed = await askConfirm({
       title: "Generate walking footprints?",
-      description: "Every route edge is routed through OSRM.",
+      description:
+        "OSRM routes each edge between spot coordinates. This may take a moment.",
       confirmLabel: "Generate",
     });
 
@@ -169,7 +195,7 @@ export default function TourRoutePage() {
       await generateFootprints.mutateAsync();
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Could not generate footprints.",
+        getApiErrorMessage(err, "Could not generate footprints."),
       );
     }
   }
@@ -185,121 +211,166 @@ export default function TourRoutePage() {
     }
 
     setSubmitError(null);
+    setPendingDeleteId(edgeId);
 
     try {
       await deleteEdge.mutateAsync(edgeId);
     } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Could not delete route edge.",
-      );
+      setSubmitError(getApiErrorMessage(err, "Could not delete route edge."));
+    } finally {
+      setPendingDeleteId(null);
     }
-  }
-
-  const isLoading = floorsLoading || spotsLoading || routeLoading;
-  const hasFloors = floors.length > 0;
-
-  function floorLabel(floor: (typeof floors)[number]) {
-    const name = getPreferredAudienceTranslation(floor.translations)?.name;
-    return name ? `Floor ${floor.floorNo} — ${name}` : `Floor ${floor.floorNo}`;
   }
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <p className="text-muted-foreground text-sm">
-          <Link href="/tours" className="hover:underline">
-            Tours
-          </Link>
-          {" / "}
-          <Link href={`/tours/${tourId}/edit`} className="hover:underline">
-            {getPreferredTranslation(tour?.translations ?? [])?.title ?? "Tour"}
-          </Link>
-          {" / Route"}
-        </p>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Route</h1>
-            <p className="text-muted-foreground text-sm">
-              Each floor has its own route. Edges connect spots on the selected
-              floor; use a transition point to move between floors.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href={`/tours/${tourId}/spots`} />}
-            >
-              Spots
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={generateRoute.isPending || spots.length < 2}
-              onClick={() => void handleGenerate()}
-            >
-              {generateRoute.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Wand2 className="size-4" />
-              )}
-              Generate from spots
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={
-                generateFootprints.isPending || edges.length === 0
-              }
-              onClick={() => void handleGenerateFootprints()}
-            >
-              {generateFootprints.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Footprints className="size-4" />
-              )}
-              Generate footprints
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {!floorsLoading && !hasFloors ? (
         <Alert>
           <AlertDescription>
-            This tour has no floors yet.{" "}
+            Create a floor before building a route.{" "}
             <Link
               href={`/tours/${tourId}/floors`}
               className="font-medium underline"
             >
-              Create a floor
-            </Link>{" "}
-            before building a route.
+              Go to Floors
+            </Link>
           </AlertDescription>
         </Alert>
       ) : null}
 
       {hasFloors ? (
-        <Card>
-          <CardContent className="flex flex-wrap items-center gap-2 py-4">
-            <span className="text-muted-foreground mr-1 text-sm font-medium">
-              Editing route for:
-            </span>
-            {floors.map((floor) => (
-              <Button
-                key={floor.id}
-                type="button"
-                size="sm"
-                variant={
-                  floor.id === selectedFloorId ? "default" : "outline"
+        <Card className="gap-0 overflow-hidden p-0 py-0 shadow-md ring-1 ring-border/80">
+          <CardContent className="space-y-4 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase">
+                  <Layers className="size-3.5" />
+                  Floor
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {floors.map((floor) => {
+                    const active = floor.id === selectedFloorId;
+                    return (
+                      <Button
+                        key={floor.id}
+                        type="button"
+                        size="sm"
+                        variant={active ? "default" : "outline"}
+                        className={cn(
+                          !active && "border-brand-tan/60 bg-background",
+                        )}
+                        onClick={() => selectFloor(floor.id)}
+                      >
+                        {floorShortLabel(floor)}
+                        <Badge
+                          variant="secondary"
+                          className="ml-1 tabular-nums"
+                        >
+                          {floor.id === selectedFloorId
+                            ? edges.length
+                            : floor.routeEdgeCount}
+                        </Badge>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={`/tours/${tourId}/spots`} />}
+                >
+                  <MapPin className="size-4" />
+                  Manage spots
+                </Button>
+                <AddRouteEdgeDialog
+                  tourId={tourId}
+                  floorId={selectedFloorId}
+                  spots={spots}
+                  edgeCount={edges.length}
+                  disabled={spots.length < 2}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={generateRoute.isPending || spots.length < 2}
+                  onClick={() => void handleGenerate()}
+                >
+                  {generateRoute.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="size-4" />
+                  )}
+                  Generate from spots
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={
+                    generateFootprints.isPending || edges.length === 0
+                  }
+                  onClick={() => void handleGenerateFootprints()}
+                >
+                  {generateFootprints.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Footprints className="size-4" />
+                  )}
+                  Generate footprints
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-brand-tan/40 bg-brand-cream/20 grid gap-3 rounded-lg border p-3 sm:grid-cols-3">
+              <WorkflowStep
+                done={stepSpotsDone}
+                title="1. Spots on this floor"
+                description={
+                  stepSpotsDone
+                    ? `${spots.length} spots (${spotsWithCoords} with map coords)`
+                    : "Need at least 2 spots"
                 }
-                onClick={() => setSelectedFloorId(floor.id)}
-              >
-                {floorLabel(floor)}
-                <Badge variant="secondary">{floor.routeEdgeCount}</Badge>
-              </Button>
-            ))}
+                action={
+                  !stepSpotsDone ? (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      nativeButton={false}
+                      render={
+                        <Link href={`/tours/${tourId}/spots/new`} />
+                      }
+                    >
+                      Add spots
+                    </Button>
+                  ) : null
+                }
+              />
+              <WorkflowStep
+                done={stepRouteDone}
+                title="2. Connect spots"
+                description={
+                  stepRouteDone
+                    ? `${edges.length} edge${edges.length === 1 ? "" : "s"}`
+                    : "Generate a chain or add edges"
+                }
+              />
+              <WorkflowStep
+                done={stepFootprintsDone}
+                title="3. Walking paths"
+                description={
+                  stepRouteDone
+                    ? `${edgesWithFootprints}/${edges.length} with OSRM footprints`
+                    : "After edges exist"
+                }
+              />
+            </div>
           </CardContent>
         </Card>
       ) : null}
@@ -310,10 +381,37 @@ export default function TourRoutePage() {
         </Alert>
       ) : null}
 
+      {!stepFootprintsDone && stepRouteDone && edges.length > 0 ? (
+        <Alert className="border-brand-tan/50 bg-brand-cream/30">
+          <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Edges use straight lines until you generate footprints for
+              realistic walking paths.
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={generateFootprints.isPending}
+              onClick={() => void handleGenerateFootprints()}
+            >
+              {generateFootprints.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Footprints className="size-4" />
+              )}
+              Generate now
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {isLoading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-56 w-full" />
+        <div className="grid gap-6 lg:grid-cols-5">
+          <Skeleton className="lg:col-span-2 h-64 w-full rounded-xl" />
+          <div className="lg:col-span-3">
+            <RouteTableSkeleton />
+          </div>
         </div>
       ) : null}
 
@@ -328,134 +426,192 @@ export default function TourRoutePage() {
         </Card>
       ) : null}
 
-      {!isLoading && !isError ? (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Route map preview</CardTitle>
-              <CardDescription>
-                Visual preview of spot coordinates and footprint polylines.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+      {!isLoading && !isError && hasFloors ? (
+        <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
+          <Card className="gap-0 overflow-hidden p-0 py-0 shadow-md ring-1 ring-border/80 lg:sticky lg:top-4 lg:col-span-2">
+            <CardContent className="space-y-2 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold tracking-tight">Map preview</p>
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {spotsWithCoords}/{spots.length} spots on map
+                </span>
+              </div>
               <RouteMapPreview spots={spots} edges={edges} />
+              <p className="text-muted-foreground text-xs">
+                Numbers match spot sort order. Preview updates when you switch
+                floors or edit edges.
+              </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Route className="size-4" />
-                Route edges
-              </CardTitle>
-              <CardDescription>
-                {edges.length} edge{edges.length === 1 ? "" : "s"} · routeVersion
-                bumps on every change
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {edges.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  No edges yet. Add spots first, then generate a chain or add
-                  edges manually.
-                </p>
-              ) : (
-                edges.map((edge) => (
-                  <div
-                    key={edge.id}
-                    className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">#{edge.sortOrder}</Badge>
-                        <span className="font-medium">
-                          {edge.fromSpot.title}
-                        </span>
-                        <span className="text-muted-foreground">→</span>
-                        <span className="font-medium">{edge.toSpot.title}</span>
-                      </div>
-                      <p className="text-muted-foreground text-xs">
-                        Footprint:{" "}
-                        {edge.footprintGeo
-                          ? `${edge.footprintGeo.length} points`
-                          : "none"}
-                      </p>
-                    </div>
+          <div className="space-y-4 lg:col-span-3">
+            {edges.length === 0 ? (
+              <Card className="border-brand-tan/60 border-dashed bg-brand-cream/20">
+                <CardContent className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+                  <Wand2 className="text-muted-foreground size-10" />
+                  <p className="font-medium">No route on this floor yet</p>
+                  <p className="text-muted-foreground max-w-md text-sm">
+                    {spots.length < 2
+                      ? "Add at least two spots on this floor, then generate a route in one click."
+                      : "Use Generate from spots to connect spots in sort order, or add edges manually."}
+                  </p>
+                  {spots.length >= 2 ? (
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      disabled={deleteEdge.isPending}
-                      onClick={() => void handleDelete(edge.id)}
+                      disabled={generateRoute.isPending}
+                      onClick={() => void handleGenerate()}
                     >
-                      <Trash2 className="size-4" />
-                      Delete
+                      {generateRoute.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="size-4" />
+                      )}
+                      Generate from spots
                     </Button>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                  ) : (
+                    <Button
+                      type="button"
+                      nativeButton={false}
+                      render={
+                        <Link href={`/tours/${tourId}/spots/new`} />
+                      }
+                    >
+                      <MapPin className="size-4" />
+                      Add spots
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="gap-0 overflow-hidden p-0 py-0 shadow-md ring-1 ring-border/80">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-brand-tan/50 bg-linear-to-r from-brand/8 via-brand-cream/60 to-brand-tan/40">
+                        <th className="text-brand-deep px-4 py-3.5 text-center text-xs font-semibold tracking-wider uppercase">
+                          #
+                        </th>
+                        <th className="text-brand-deep px-4 py-3.5 text-left text-xs font-semibold tracking-wider uppercase">
+                          From
+                        </th>
+                        <th className="text-brand-deep px-4 py-3.5 text-left text-xs font-semibold tracking-wider uppercase">
+                          To
+                        </th>
+                        <th className="text-brand-deep px-4 py-3.5 text-center text-xs font-semibold tracking-wider uppercase">
+                          Path
+                        </th>
+                        <th className="text-brand-deep px-4 py-3.5 text-right text-xs font-semibold tracking-wider uppercase">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/70">
+                      {edges.map((edge, rowIndex) => {
+                        const path = footprintStatus(edge);
+                        const isDeleting = pendingDeleteId === edge.id;
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Add edge</CardTitle>
-              <CardDescription>
-                Optional footprint: one <code>lat,lng</code> pair per line.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {spots.length < 2 ? (
-                <p className="text-muted-foreground text-sm">
-                  Add at least two spots before creating route edges.{" "}
-                  <Link
-                    href={`/tours/${tourId}/spots/new`}
-                    className="underline"
-                  >
-                    Add a spot
-                  </Link>
-                </p>
-              ) : (
-                <Form form={form} onSubmit={onSubmit} className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormSelect
-                      name="fromSpotId"
-                      label="From spot"
-                      options={spotOptions}
-                      placeholder="Select spot"
-                    />
-                    <FormSelect
-                      name="toSpotId"
-                      label="To spot"
-                      options={spotOptions}
-                      placeholder="Select spot"
-                    />
-                    <FormInput
-                      name="sortOrder"
-                      label="Order"
-                      type="number"
-                      min={0}
-                    />
-                  </div>
-                  <FormTextarea
-                    name="footprintText"
-                    label="Footprint polyline (optional)"
-                    rows={4}
-                    placeholder={"41.8902,12.4922\n41.8910,12.4930"}
-                  />
-                  <Button type="submit" disabled={createEdge.isPending}>
-                    {createEdge.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : null}
-                    Add edge
-                  </Button>
-                </Form>
-              )}
-            </CardContent>
-          </Card>
-        </>
+                        return (
+                          <tr
+                            key={edge.id}
+                            className={cn(
+                              "transition-colors hover:bg-brand-cream/35",
+                              rowIndex % 2 === 1 && "bg-muted/15",
+                            )}
+                          >
+                            <td className="px-4 py-3.5 text-center align-middle">
+                              <Badge
+                                variant="outline"
+                                className="border-brand-tan/50 font-mono tabular-nums"
+                              >
+                                {edge.sortOrder}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3.5 align-middle">
+                              <span className="text-muted-foreground mr-1.5 font-mono text-xs">
+                                {edge.fromSpot.sortOrder}.
+                              </span>
+                              {edge.fromSpot.title}
+                            </td>
+                            <td className="px-4 py-3.5 align-middle">
+                              <span className="text-muted-foreground mr-1.5 font-mono text-xs">
+                                {edge.toSpot.sortOrder}.
+                              </span>
+                              {edge.toSpot.title}
+                            </td>
+                            <td className="px-4 py-3.5 text-center align-middle">
+                              <span
+                                className={cn(
+                                  "inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1 text-[11px] font-medium ring-1",
+                                  path.className,
+                                )}
+                                title={path.detail}
+                              >
+                                {path.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-right align-middle">
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="h-8"
+                                disabled={isDeleting}
+                                onClick={() => void handleDelete(edge.id)}
+                              >
+                                {isDeleting ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-4" />
+                                )}
+                                Delete
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <CardFooter className="border-brand-tan/40 bg-brand-cream/25 border-t px-4 py-2.5">
+                  <p className="text-muted-foreground text-xs">
+                    {edges.length} edge{edges.length === 1 ? "" : "s"} on this
+                    floor · changing edges bumps route version for the mobile app
+                  </p>
+                </CardFooter>
+              </Card>
+            )}
+          </div>
+        </div>
       ) : null}
+    </div>
+  );
+}
+
+function WorkflowStep({
+  done,
+  title,
+  description,
+  action,
+}: {
+  done: boolean;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex gap-2.5">
+      {done ? (
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+      ) : (
+        <Circle className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+      )}
+      <div className="min-w-0 space-y-0.5">
+        <p className="text-sm font-medium leading-snug">{title}</p>
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          {description}
+        </p>
+        {action}
+      </div>
     </div>
   );
 }
