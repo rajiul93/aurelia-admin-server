@@ -13,6 +13,7 @@ export function useCreateSpot(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Spot created" },
     mutationFn: (payload: CreateSpotPayload) =>
       spotsService.create(tourId, payload),
     onSuccess: () => {
@@ -30,6 +31,7 @@ export function useUpdateSpot(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Spot updated" },
     mutationFn: ({
       spotId,
       payload,
@@ -52,6 +54,7 @@ export function useDeleteSpot(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Spot deleted" },
     mutationFn: (spotId: string) => spotsService.remove(tourId, spotId),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -65,6 +68,7 @@ export function useCreateSpotMedia(tourId: string, spotId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Media uploaded" },
     mutationFn: (payload: CreateSpotMediaPayload) =>
       spotsService.createMedia(tourId, spotId, payload),
     onSuccess: () => {
@@ -79,6 +83,7 @@ export function useDeleteSpotMedia(tourId: string, spotId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Media deleted" },
     mutationFn: (mediaId: string) =>
       spotsService.removeMedia(tourId, spotId, mediaId),
     onSuccess: () => {
@@ -93,6 +98,7 @@ export function useCreateSpotFaq(tourId: string, spotId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Spot FAQ created" },
     mutationFn: (payload: CreateSpotFaqPayload) =>
       spotsService.createFaq(tourId, spotId, payload),
     onSuccess: () => {
@@ -107,6 +113,7 @@ export function useDeleteSpotFaq(tourId: string, spotId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Spot FAQ deleted" },
     mutationFn: (faqId: string) =>
       spotsService.removeFaq(tourId, spotId, faqId),
     onSuccess: () => {
@@ -121,6 +128,7 @@ export function useUpdateSpotFaq(tourId: string, spotId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Spot FAQ updated" },
     mutationFn: ({
       faqId,
       payload,

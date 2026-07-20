@@ -10,6 +10,7 @@ export function useCreateFaqCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Category created" },
     mutationFn: (payload: CreateFaqCategoryPayload) =>
       faqCategoriesService.create(payload),
     onSuccess: () => {
@@ -24,6 +25,7 @@ export function useUpdateFaqCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Category updated" },
     mutationFn: ({
       id,
       payload,
@@ -47,6 +49,7 @@ export function useDeleteFaqCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Category deleted" },
     mutationFn: (id: string) => faqCategoriesService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({

@@ -6,6 +6,7 @@ export function useBuildTourBundle(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Bundle built" },
     mutationFn: () => tourBundlesService.build(tourId),
     onSuccess: () => {
       void queryClient.invalidateQueries({

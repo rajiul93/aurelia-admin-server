@@ -10,6 +10,7 @@ export function useCreateSubscriptionPlan() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Plan created" },
     mutationFn: (payload: CreateSubscriptionPlanPayload) =>
       subscriptionPlanService.create(payload),
     onSuccess: () => {
@@ -24,6 +25,7 @@ export function useUpdateSubscriptionPlan() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Plan updated" },
     mutationFn: ({
       id,
       payload,
@@ -46,6 +48,7 @@ export function useDeleteSubscriptionPlan() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Plan deleted" },
     mutationFn: (id: string) => subscriptionPlanService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({

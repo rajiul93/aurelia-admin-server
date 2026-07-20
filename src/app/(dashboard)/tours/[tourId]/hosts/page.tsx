@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useHosts } from "@/hooks/queries/use-hosts";
 import { useDeleteHost } from "@/hooks/mutations/use-host-mutations";
 import { HostFormDialog } from "./host-form-dialog";
@@ -13,11 +14,18 @@ export default function HostsPage() {
   const tourId = params.tourId;
   const { data: hosts = [], isLoading } = useHosts(tourId);
   const deleteHostMutation = useDeleteHost(tourId);
+  const askConfirm = useConfirm();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingHost, setEditingHost] = useState<Host | null>(null);
 
-  const handleDelete = (host: Host) => {
-    if (window.confirm(`Delete host "${host.name}"? This action cannot be undone.`)) {
+  const handleDelete = async (host: Host) => {
+    const confirmed = await askConfirm({
+      title: `Delete host "${host.name}"?`,
+      description: "This action cannot be undone.",
+      destructive: true,
+    });
+
+    if (confirmed) {
       deleteHostMutation.mutate(host.id);
     }
   };

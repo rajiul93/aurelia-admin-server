@@ -27,6 +27,7 @@ export function useGenerateTourRoute(tourId: string, floorId: string) {
   const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
+    meta: { successMessage: "Route generated" },
     mutationFn: () => tourRouteService.generateFromSpots(tourId, floorId),
     onSuccess: invalidate,
   });
@@ -36,6 +37,7 @@ export function useGenerateRouteFootprints(tourId: string, floorId: string) {
   const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
+    meta: { successMessage: "Footprints generated" },
     mutationFn: () =>
       tourRouteService.generateFootprintsFromOsrm(tourId, floorId),
     onSuccess: invalidate,
@@ -46,6 +48,7 @@ export function useCreateRouteEdge(tourId: string, floorId: string) {
   const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
+    meta: { successMessage: "Route edge created" },
     mutationFn: (payload: CreateRouteEdgePayload) =>
       tourRouteService.createEdge(tourId, floorId, payload),
     onSuccess: invalidate,
@@ -56,6 +59,7 @@ export function useUpdateRouteEdge(tourId: string, floorId: string) {
   const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
+    meta: { successMessage: "Route edge updated" },
     mutationFn: ({
       edgeId,
       payload,
@@ -71,6 +75,7 @@ export function useDeleteRouteEdge(tourId: string, floorId: string) {
   const invalidate = useRouteInvalidation(tourId, floorId);
 
   return useMutation({
+    meta: { successMessage: "Route edge deleted" },
     mutationFn: (edgeId: string) =>
       tourRouteService.removeEdge(tourId, floorId, edgeId),
     onSuccess: invalidate,

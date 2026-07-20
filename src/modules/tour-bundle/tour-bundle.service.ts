@@ -27,6 +27,12 @@ export const tourBundleService = {
     return toTourBundleDetailDto(record);
   },
 
+  /**
+   * `force` has no caller in this repo today — keep it anyway. It is the only
+   * way to re-sign a bundle whose content has not changed, which is what a
+   * signing-key rotation needs (the version counters would all still match, so
+   * the cache would otherwise serve the bundle signed with the retired key).
+   */
   async buildForTour(
     tourId: string,
     audit?: AuditContext,
@@ -46,13 +52,6 @@ export const tourBundleService = {
       tour.tourBundleVersion,
     );
 
-    // Determine bundle format version: explicit > negotiated > default (v2)
-    const formatVersion = options?.bundleFormatVersion ??
-      getBundleFormatVersion(options?.clientApiVersion) ??
-      "2";
-
-    const artifacts = buildTourBundleArtifacts(tour, formatVersion);
-
     const bundleIsCurrent =
       !options?.force &&
       existing &&
@@ -63,6 +62,16 @@ export const tourBundleService = {
     if (existing && bundleIsCurrent) {
       return toTourBundleDto(existing);
     }
+
+    // Built only once the cache has been ruled out. This used to run above the
+    // check, so an RSA-SHA256 signature and three SHA-256 digests were computed
+    // on every call — the cache saved the DB write but never the crypto.
+    // Determine bundle format version: explicit > negotiated > default (v2)
+    const formatVersion = options?.bundleFormatVersion ??
+      getBundleFormatVersion(options?.clientApiVersion) ??
+      "2";
+
+    const artifacts = buildTourBundleArtifacts(tour, formatVersion);
 
     if (existing) {
       const record = await tourBundleRepository.updateArtifacts(existing.id, {

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useDeleteDevicePricingTier } from "@/hooks/mutations/use-device-pricing-tier-mutations";
 import { useDevicePricingTiers } from "@/hooks/queries/use-device-pricing-tiers";
 
@@ -25,13 +26,15 @@ function formatPrice(value: number) {
 export function TiersList() {
   const { data, isLoading, isError, error, refetch } = useDevicePricingTiers();
   const deleteTier = useDeleteDevicePricingTier();
+  const askConfirm = useConfirm();
 
   const tiers = data?.data ?? [];
 
   async function handleDelete(id: string, deviceCount: number) {
-    const confirmed = window.confirm(
-      `Delete the pricing tier for ${deviceCount} devices?`,
-    );
+    const confirmed = await askConfirm({
+      title: `Delete the pricing tier for ${deviceCount} devices?`,
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;

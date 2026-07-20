@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useRevokeDeviceSession } from "@/hooks/mutations/use-tour-access-mutations";
 import { useTourAccessSessions } from "@/hooks/queries/use-tour-access-sessions";
 import type { TourAccess } from "@/types/tour-access";
@@ -45,15 +46,20 @@ export function AccessSessionsPanel({ access }: AccessSessionsPanelProps) {
     access.id,
   );
   const revokeSession = useRevokeDeviceSession();
+  const askConfirm = useConfirm();
   const [actionError, setActionError] = useState<string | null>(null);
 
   const sessions = data?.data ?? [];
   const isRevoked = access.status === "REVOKED";
 
   async function handleRevoke(sessionId: string, label: string) {
-    const confirmed = window.confirm(
-      `Remove session for ${label}? That device will be signed out immediately and must log in again.`,
-    );
+    const confirmed = await askConfirm({
+      title: `Remove session for ${label}?`,
+      description:
+        "That device will be signed out immediately and must log in again.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;

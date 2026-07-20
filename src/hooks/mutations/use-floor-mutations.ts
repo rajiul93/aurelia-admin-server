@@ -21,6 +21,7 @@ export function useCreateFloor(tourId: string) {
   const invalidate = useFloorInvalidation(tourId);
 
   return useMutation({
+    meta: { successMessage: "Floor created" },
     mutationFn: (payload: CreateFloorPayload) =>
       floorsService.create(tourId, payload),
     onSuccess: invalidate,
@@ -31,6 +32,7 @@ export function useUpdateFloor(tourId: string) {
   const invalidate = useFloorInvalidation(tourId);
 
   return useMutation({
+    meta: { successMessage: "Floor updated" },
     mutationFn: ({
       floorId,
       payload,
@@ -46,6 +48,7 @@ export function useDeleteFloor(tourId: string) {
   const invalidate = useFloorInvalidation(tourId);
 
   return useMutation({
+    meta: { successMessage: "Floor deleted" },
     mutationFn: (floorId: string) => floorsService.remove(tourId, floorId),
     onSuccess: invalidate,
   });
@@ -55,6 +58,7 @@ export function useCreateTransitionPoint(tourId: string) {
   const invalidate = useFloorInvalidation(tourId);
 
   return useMutation({
+    meta: { successMessage: "Transition point created" },
     mutationFn: ({
       floorId,
       payload,
@@ -70,6 +74,7 @@ export function useUpdateTransitionPoint(tourId: string) {
   const invalidate = useFloorInvalidation(tourId);
 
   return useMutation({
+    meta: { successMessage: "Transition point updated" },
     mutationFn: ({
       floorId,
       pointId,
@@ -88,6 +93,7 @@ export function useDeleteTransitionPoint(tourId: string) {
   const invalidate = useFloorInvalidation(tourId);
 
   return useMutation({
+    meta: { successMessage: "Transition point deleted" },
     mutationFn: ({ floorId, pointId }: { floorId: string; pointId: string }) =>
       floorsService.removeTransitionPoint(tourId, floorId, pointId),
     onSuccess: invalidate,

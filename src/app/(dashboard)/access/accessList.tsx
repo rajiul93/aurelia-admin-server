@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   useDeleteTourAccess,
   useRevokeTourAccess,
@@ -45,13 +46,17 @@ export function AccessList() {
   });
   const revokeAccess = useRevokeTourAccess();
   const deleteAccess = useDeleteTourAccess();
+  const askConfirm = useConfirm();
 
   const records = data?.data ?? [];
 
   async function handleRevoke(id: string, email: string) {
-    const confirmed = window.confirm(
-      `Revoke access for ${email}? Active device sessions will lose entitlement.`,
-    );
+    const confirmed = await askConfirm({
+      title: `Revoke access for ${email}?`,
+      description: "Active device sessions will lose entitlement.",
+      confirmLabel: "Revoke",
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;
@@ -61,9 +66,11 @@ export function AccessList() {
   }
 
   async function handleDelete(id: string, email: string) {
-    const confirmed = window.confirm(
-      `Delete access record for ${email}? This cannot be undone.`,
-    );
+    const confirmed = await askConfirm({
+      title: `Delete access record for ${email}?`,
+      description: "This cannot be undone.",
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;

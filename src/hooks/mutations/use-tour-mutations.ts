@@ -11,6 +11,7 @@ export function useCreateTour() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Tour created" },
     mutationFn: (payload: CreateTourPayload) => toursService.create(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.tours.lists() });
@@ -22,6 +23,7 @@ export function useUpdateTour() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Tour updated" },
     mutationFn: ({
       id,
       payload,
@@ -42,6 +44,7 @@ export function useDeleteTour() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Tour deleted" },
     mutationFn: (id: string) => toursService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.tours.lists() });
@@ -53,6 +56,7 @@ export function useTourLifecycle(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Tour status updated" },
     mutationFn: (action: TourLifecycleAction) =>
       toursService.transition(tourId, action),
     onSuccess: () => {

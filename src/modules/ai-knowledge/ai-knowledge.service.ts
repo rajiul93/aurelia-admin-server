@@ -13,12 +13,9 @@ import type {
 } from "./ai-knowledge.schema";
 
 async function ensureTourExists(tourId: string) {
-  const tour = await tourRepository.findById(tourId);
-  if (!tour) {
+  if (!(await tourRepository.existsById(tourId))) {
     throw new NotFoundError("Tour not found");
   }
-
-  return tour;
 }
 
 async function ensureSpotOptional(tourId: string, spotId: string | null) {

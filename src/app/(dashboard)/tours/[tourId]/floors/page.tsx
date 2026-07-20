@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useTour } from "@/hooks/queries/use-tours";
 import { useFloors } from "@/hooks/queries/use-floors";
 import { useDeleteFloor } from "@/hooks/mutations/use-floor-mutations";
@@ -28,6 +29,7 @@ export default function TourFloorsPage() {
   const { data: tourResponse } = useTour(tourId);
   const { data: floorsResponse, isLoading } = useFloors(tourId);
   const deleteFloor = useDeleteFloor(tourId);
+  const askConfirm = useConfirm();
 
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -45,11 +47,14 @@ export default function TourFloorsPage() {
     setDeleteError(null);
 
     const label = floorName(floor) ?? `Floor ${floor.floorNo}`;
-    const confirmed = window.confirm(
-      floor.spotCount > 0
-        ? `Delete ${label}? Its ${floor.spotCount} spot(s) and its route will be deleted too. This cannot be undone.`
-        : `Delete ${label}? This cannot be undone.`,
-    );
+    const confirmed = await askConfirm({
+      title: `Delete ${label}?`,
+      description:
+        floor.spotCount > 0
+          ? `Its ${floor.spotCount} spot(s) and its route will be deleted too. This cannot be undone.`
+          : "This cannot be undone.",
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;

@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { FaqAnswer } from "@/components/faq/faq-answer";
 import {
   useCreateFaq,
@@ -31,6 +32,7 @@ export function FaqList() {
   const createFaq = useCreateFaq();
   const updateFaq = useUpdateFaq();
   const deleteFaq = useDeleteFaq();
+  const askConfirm = useConfirm();
 
   const faqs = data?.data ?? [];
 
@@ -64,9 +66,11 @@ export function FaqList() {
   }
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm(
-      "Delete this FAQ? This action cannot be undone.",
-    );
+    const confirmed = await askConfirm({
+      title: "Delete this FAQ?",
+      description: "This action cannot be undone.",
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;

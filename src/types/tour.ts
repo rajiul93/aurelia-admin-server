@@ -60,12 +60,19 @@ export type Spot = {
   faqs: SpotFaq[];
 };
 
-export type Tour = {
+/** The cover as the admin API returns it — a url to render, nothing more. */
+export type TourCoverMedia = {
+  id: string;
+  url: string;
+};
+
+/** Mirrors TourSummaryFields in src/modules/tour/tour.types.ts. */
+type TourSummary = {
   id: string;
   slug: string;
   placeId: string | null;
   coverMediaId: string | null;
-  coverMedia: Media | null;
+  coverMedia: TourCoverMedia | null;
   publishStatus: PublishStatus;
   tourBundleVersion: number;
   mediaVersion: number;
@@ -74,7 +81,6 @@ export type Tour = {
   publishedAt: string | null;
   archivedAt: string | null;
   translations: TourTranslation[];
-  spots: Spot[];
   language?: AppLanguage;
   title?: string;
   description?: string;
@@ -83,11 +89,27 @@ export type Tour = {
 };
 
 /**
- * What GET /tours returns per row. The list carries a spot count, not the
- * spots — fetch a tour by id when you need its content.
+ * What GET /tours/[id] returns. No spots, floors, route or aiKnowledge — those
+ * have their own endpoints and hooks (useSpots, useFloors, useTourRoute). If a
+ * page needs tour content, fetch it from the endpoint that owns it rather than
+ * widening this.
  */
-export type TourListItem = Omit<Tour, "spots"> & {
+export type TourDetail = TourSummary;
+
+/**
+ * What GET /tours returns per row. The list carries a spot count, not the
+ * spots.
+ */
+export type TourListItem = TourSummary & {
   spotCount: number;
+};
+
+/**
+ * The full shape, still returned by create/update/lifecycle mutations. Reading
+ * `spots` off a GET /tours/[id] response will not work — see TourDetail.
+ */
+export type Tour = TourSummary & {
+  spots: Spot[];
 };
 
 export type CreateTourPayload = {

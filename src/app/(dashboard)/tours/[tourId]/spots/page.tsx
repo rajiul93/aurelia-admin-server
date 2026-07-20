@@ -6,6 +6,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useDeleteSpot } from "@/hooks/mutations/use-spot-mutations";
 import { useSpots } from "@/hooks/queries/use-spots";
 import { useTour } from "@/hooks/queries/use-tours";
@@ -17,12 +18,19 @@ export default function TourSpotsPage() {
   const { data: tourResponse } = useTour(tourId);
   const { data, isLoading, isError } = useSpots(tourId);
   const deleteSpot = useDeleteSpot(tourId);
+  const askConfirm = useConfirm();
 
   const tour = tourResponse?.data;
   const spots = data?.data ?? [];
 
   async function handleDelete(spotId: string) {
-    if (!window.confirm("Delete this spot and all its media/FAQs?")) {
+    const confirmed = await askConfirm({
+      title: "Delete this spot?",
+      description: "Its media and FAQs will be deleted too.",
+      destructive: true,
+    });
+
+    if (!confirmed) {
       return;
     }
 

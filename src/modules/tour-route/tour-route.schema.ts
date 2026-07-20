@@ -62,7 +62,13 @@ export const replaceTourRouteSchema = z.object({
         message: "From and to spots must be different",
         path: ["toSpotId"],
       }),
-  ),
+  )
+    // Capped because replaceByFloor validates edges in a sequential loop
+    // (tour-route.service.ts) and each iteration costs four queries — an
+    // uncapped array is an easy way to tie up a connection. A floor with more
+    // than 200 edges is not a real tour. If this endpoint ever gets a caller,
+    // batch the validation into one findMany first and the cap can go.
+    .max(200, "A floor route cannot have more than 200 edges"),
 });
 
 export const floorIdParamSchema = z.object({

@@ -7,6 +7,7 @@ export function useUpdateSubscriptionPricingSettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Pricing settings updated" },
     mutationFn: (payload: UpdateSubscriptionPricingSettingsPayload) =>
       subscriptionPricingSettingsService.update(payload),
     onSuccess: () => {

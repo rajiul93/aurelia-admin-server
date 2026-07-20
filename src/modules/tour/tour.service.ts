@@ -2,7 +2,11 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/api/errors"
 import { auditService, type AuditContext } from "@/lib/audit";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { tourBundleService } from "@/modules/tour-bundle";
-import { toTourDto, toTourListItemDtoList } from "./tour.mapper";
+import {
+  toTourDetailDto,
+  toTourDto,
+  toTourListItemDtoList,
+} from "./tour.mapper";
 import {
   getAvailableLifecycleActions,
   getTourReadiness,
@@ -53,7 +57,7 @@ function mapAuditTour(tour: Awaited<ReturnType<typeof tourRepository.findById>>)
 }
 
 async function ensureUniqueSlug(slug: string, excludeId?: string) {
-  const existing = await tourRepository.findBySlug(slug);
+  const existing = await tourRepository.findIdBySlug(slug);
 
   if (existing && existing.id !== excludeId) {
     throw new ConflictError("A tour with this slug already exists");
@@ -100,12 +104,15 @@ export const tourService = {
   },
 
   async getById(id: string, language?: AppLanguage) {
-    const tour = await tourRepository.findById(id);
+    // Narrow include: see tourDetailInclude. create/update/transition still
+    // return the full toTourDto — they feed mapAuditTour, which reads spot
+    // media and FAQ counts.
+    const tour = await tourRepository.findDetailById(id);
     if (!tour) {
       throw new NotFoundError("Tour not found");
     }
 
-    return toTourDto(tour, language);
+    return toTourDetailDto(tour, language);
   },
 
   async create(input: CreateTourInput, audit?: AuditContext) {

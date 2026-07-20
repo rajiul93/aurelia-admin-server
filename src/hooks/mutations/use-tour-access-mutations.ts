@@ -10,6 +10,7 @@ export function useCreateTourAccess() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Access grant created" },
     mutationFn: (payload: CreateTourAccessPayload) =>
       tourAccessService.create(payload),
     onSuccess: () => {
@@ -24,6 +25,7 @@ export function useUpdateTourAccess() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Access grant updated" },
     mutationFn: ({
       id,
       payload,
@@ -46,6 +48,7 @@ export function useRevokeTourAccess() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Access revoked" },
     mutationFn: (id: string) => tourAccessService.revoke(id),
     onSuccess: (_data, id) => {
       void queryClient.invalidateQueries({
@@ -62,6 +65,7 @@ export function useDeleteTourAccess() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Access grant deleted" },
     mutationFn: (id: string) => tourAccessService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -75,6 +79,7 @@ export function useRevokeDeviceSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Device session revoked" },
     mutationFn: ({
       accessId,
       sessionId,

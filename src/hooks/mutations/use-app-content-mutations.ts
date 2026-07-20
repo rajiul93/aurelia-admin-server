@@ -19,6 +19,7 @@ export function useCreateAppUiString() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "UI string created" },
     mutationFn: (payload: CreateAppUiStringPayload) =>
       appUiStringsService.create(payload),
     onSuccess: () => {
@@ -34,6 +35,7 @@ export function useUpdateAppUiString() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "UI string updated" },
     mutationFn: ({
       id,
       payload,
@@ -57,6 +59,7 @@ export function useDeleteAppUiString() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "UI string deleted" },
     mutationFn: (id: string) => appUiStringsService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -71,6 +74,7 @@ export function useCreateAppAsset() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Asset created" },
     mutationFn: (payload: CreateAppAssetPayload) =>
       appAssetsService.create(payload),
     onSuccess: () => {
@@ -86,6 +90,7 @@ export function useUpdateAppAsset() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Asset updated" },
     mutationFn: ({
       id,
       payload,
@@ -109,6 +114,7 @@ export function useDeleteAppAsset() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Asset deleted" },
     mutationFn: (id: string) => appAssetsService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({

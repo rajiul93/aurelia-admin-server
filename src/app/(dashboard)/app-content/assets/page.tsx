@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useDeleteAppAsset } from "@/hooks/mutations/use-app-content-mutations";
 import {
   useAppAssets,
@@ -25,10 +26,16 @@ export default function AppAssetsPage() {
   });
   const { data: releaseData } = useAppReleaseConfig();
   const deleteAsset = useDeleteAppAsset();
+  const askConfirm = useConfirm();
   const records = data?.data ?? [];
 
   async function handleDelete(id: string, key: string) {
-    if (!window.confirm(`Delete app asset "${key}"?`)) {
+    const confirmed = await askConfirm({
+      title: `Delete app asset "${key}"?`,
+      destructive: true,
+    });
+
+    if (!confirmed) {
       return;
     }
 

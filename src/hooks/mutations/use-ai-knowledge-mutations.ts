@@ -29,6 +29,7 @@ export function useCreateAiKnowledge(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "AI knowledge entry created" },
     mutationFn: (payload: CreateAiKnowledgePayload) =>
       aiKnowledgeService.create(tourId, payload),
     onSuccess: () => invalidateKnowledge(queryClient, tourId),
@@ -39,6 +40,7 @@ export function useUpdateAiKnowledge(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "AI knowledge entry updated" },
     mutationFn: ({
       knowledgeId,
       payload,
@@ -55,6 +57,7 @@ export function useDeleteAiKnowledge(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "AI knowledge entry deleted" },
     mutationFn: (knowledgeId: string) =>
       aiKnowledgeService.remove(tourId, knowledgeId),
     onSuccess: () => invalidateKnowledge(queryClient, tourId),

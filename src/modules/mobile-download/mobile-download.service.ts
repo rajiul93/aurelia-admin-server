@@ -38,7 +38,12 @@ async function ensureLatestBundle(tourId: string) {
     throw new NotFoundError("No signed bundle is available for this tour");
   }
 
-  await tourBundleService.buildForTour(tourId, undefined, { force: true });
+  // No `force` here: this runs on every mobile download, and forcing meant a
+  // full graph reload, re-sign and audit row per request. Staleness is already
+  // covered — buildForTour looks the bundle up by tourBundleVersion and then
+  // compares mediaVersion / aiKnowledgeVersion / routeVersion, all of which are
+  // bumped on write, and publishStatus is re-checked just above.
+  await tourBundleService.buildForTour(tourId);
 
   const bundle = await tourBundleRepository.findLatestByTourId(tourId);
 

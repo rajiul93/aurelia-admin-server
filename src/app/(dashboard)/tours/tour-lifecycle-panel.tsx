@@ -13,6 +13,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useConfirm,
+  type ConfirmOptions,
+} from "@/components/ui/confirm-dialog";
 import { useTourLifecycle } from "@/hooks/mutations/use-tour-mutations";
 import { useTourReadiness } from "@/hooks/queries/use-tours";
 import type { PublishStatus, TourLifecycleAction } from "@/types/tour";
@@ -32,12 +36,26 @@ const actionLabels: Record<TourLifecycleAction, string> = {
   rollback: "Rollback to review",
 };
 
-const actionConfirm: Partial<Record<TourLifecycleAction, string>> = {
-  approve_publish:
-    "Publish this tour? It will enter the mobile catalog and tourBundleVersion will bump.",
-  archive: "Archive this tour? It will leave the live catalog.",
-  rollback:
-    "Rollback to review? The tour will leave the live catalog until published again.",
+const actionConfirm: Partial<Record<TourLifecycleAction, ConfirmOptions>> = {
+  approve_publish: {
+    title: "Publish this tour?",
+    description:
+      "It will enter the mobile catalog and tourBundleVersion will bump.",
+    confirmLabel: "Publish",
+  },
+  archive: {
+    title: "Archive this tour?",
+    description: "It will leave the live catalog.",
+    confirmLabel: "Archive",
+    destructive: true,
+  },
+  rollback: {
+    title: "Rollback to review?",
+    description:
+      "The tour will leave the live catalog until published again.",
+    confirmLabel: "Rollback",
+    destructive: true,
+  },
 };
 
 function getLifecycleErrorMessage(error: unknown) {
@@ -77,13 +95,14 @@ export function TourLifecyclePanel({
 }: TourLifecyclePanelProps) {
   const { data, isLoading, isError, error } = useTourReadiness(tourId);
   const transition = useTourLifecycle(tourId);
+  const askConfirm = useConfirm();
   const [actionError, setActionError] = useState<string | null>(null);
 
   const readiness = data?.data;
 
   async function handleAction(action: TourLifecycleAction) {
-    const confirmMessage = actionConfirm[action];
-    if (confirmMessage && !window.confirm(confirmMessage)) {
+    const confirmOptions = actionConfirm[action];
+    if (confirmOptions && !(await askConfirm(confirmOptions))) {
       return;
     }
 

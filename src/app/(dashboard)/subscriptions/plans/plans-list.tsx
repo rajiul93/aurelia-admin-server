@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useDeleteSubscriptionPlan } from "@/hooks/mutations/use-subscription-plan-mutations";
 import { useSubscriptionPlans } from "@/hooks/queries/use-subscription-plans";
 
@@ -25,25 +26,26 @@ function formatPrice(basePrice: number) {
 export function PlansList() {
   const { data, isLoading, isError, error, refetch } = useSubscriptionPlans();
   const deletePlan = useDeleteSubscriptionPlan();
+  const askConfirm = useConfirm();
 
   const plans = data?.data ?? [];
 
   async function handleDelete(id: string, name: string) {
-    const confirmed = window.confirm(
-      `Delete plan "${name}"? This is only possible if no purchase has ever used it.`,
-    );
+    const confirmed = await askConfirm({
+      title: `Delete plan "${name}"?`,
+      description:
+        "This is only possible if no purchase has ever used it.",
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;
     }
 
-    try {
-      await deletePlan.mutateAsync(id);
-    } catch (err) {
-      window.alert(
-        err instanceof Error ? err.message : "Could not delete plan.",
-      );
-    }
+    // The global mutation cache toasts the API's own message (e.g. "Plan is in
+    // use by a purchase"), which the old window.alert lost by reading
+    // err.message — that yields "Request failed with status code 409".
+    await deletePlan.mutateAsync(id);
   }
 
   return (

@@ -10,6 +10,7 @@ export function useCreateKnowledgeArticle() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Article created" },
     mutationFn: (payload: CreateKnowledgeArticlePayload) =>
       knowledgeArticlesService.create(payload),
     onSuccess: () => {
@@ -24,6 +25,7 @@ export function useUpdateKnowledgeArticle() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Article updated" },
     mutationFn: ({
       id,
       payload,
@@ -46,6 +48,7 @@ export function useDeleteKnowledgeArticle() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Article deleted" },
     mutationFn: (id: string) => knowledgeArticlesService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({

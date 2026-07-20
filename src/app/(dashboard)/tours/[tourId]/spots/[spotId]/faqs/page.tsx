@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormInput, FormQuill } from "@/components/form";
 import { AudienceTabs } from "@/components/i18n/audience-tabs";
@@ -42,6 +43,21 @@ export default function SpotFaqsPage() {
   const { data, isLoading } = useSpot(params.tourId, params.spotId);
   const createFaq = useCreateSpotFaq(params.tourId, params.spotId);
   const deleteFaq = useDeleteSpotFaq(params.tourId, params.spotId);
+  const askConfirm = useConfirm();
+
+  async function handleDeleteFaq(faqId: string) {
+    const confirmed = await askConfirm({
+      title: "Delete this FAQ?",
+      description: "This action cannot be undone.",
+      destructive: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    await deleteFaq.mutateAsync(faqId);
+  }
   const [activeAudience, setActiveAudience] =
     useState<AudienceType>(DEFAULT_AUDIENCE);
   const [activeLanguage, setActiveLanguage] =
@@ -159,7 +175,7 @@ export default function SpotFaqsPage() {
                     variant="destructive"
                     size="sm"
                     disabled={deleteFaq.isPending}
-                    onClick={() => deleteFaq.mutate(faq.id)}
+                    onClick={() => void handleDeleteFaq(faq.id)}
                   >
                     <Trash2 className="mr-2 size-4" />
                     Delete

@@ -7,6 +7,7 @@ export function useCreateFaq() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "FAQ created" },
     mutationFn: (payload: CreateFaqPayload) => faqsService.create(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.faqs.lists() });
@@ -18,6 +19,7 @@ export function useUpdateFaq() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "FAQ updated" },
     mutationFn: ({
       id,
       payload,
@@ -38,6 +40,7 @@ export function useDeleteFaq() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "FAQ deleted" },
     mutationFn: (id: string) => faqsService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.faqs.lists() });

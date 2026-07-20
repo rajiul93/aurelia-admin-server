@@ -7,6 +7,7 @@ export function useCreateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "User created" },
     mutationFn: (payload: CreateUserPayload) => usersService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });

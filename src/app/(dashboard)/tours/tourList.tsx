@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useDeleteTour } from '@/hooks/mutations/use-tour-mutations';
 import { useTours } from '@/hooks/queries/use-tours';
 import { APP_LANGUAGES, LANGUAGE_LABELS } from '@/lib/i18n/languages';
@@ -41,13 +42,16 @@ export function TourList() {
     limit: 100,
   });
   const deleteTour = useDeleteTour();
+  const askConfirm = useConfirm();
 
   const tours = data?.data ?? [];
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm(
-      'Delete this tour? This action cannot be undone.',
-    );
+    const confirmed = await askConfirm({
+      title: 'Delete this tour?',
+      description: 'This action cannot be undone.',
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;

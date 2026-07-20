@@ -7,6 +7,7 @@ import { ArrowUpDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ export function TransitionPointsDialog({
 
   const createPoint = useCreateTransitionPoint(tourId);
   const deletePoint = useDeleteTransitionPoint(tourId);
+  const askConfirm = useConfirm();
 
   const form = useForm<TransitionPointFormInput>({
     resolver: zodResolver(transitionPointFormSchema),
@@ -112,6 +114,17 @@ export function TransitionPointsDialog({
   }
 
   async function handleDelete(pointId: string) {
+    const confirmed = await askConfirm({
+      title: "Remove this transition point?",
+      description: "The link between these floors is deleted.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
     setSubmitError(null);
 
     try {

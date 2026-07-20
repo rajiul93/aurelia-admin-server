@@ -14,12 +14,9 @@ import type {
 } from "./spot.schema";
 
 async function ensureTourExists(tourId: string) {
-  const tour = await tourRepository.findById(tourId);
-  if (!tour) {
+  if (!(await tourRepository.existsById(tourId))) {
     throw new NotFoundError("Tour not found");
   }
-
-  return tour;
 }
 
 async function ensureSpot(tourId: string, floorId: string, spotId: string) {

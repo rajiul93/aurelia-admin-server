@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { FaqAnswer } from "@/components/faq/faq-answer";
 import {
   useCreateKnowledgeArticle,
@@ -48,13 +49,16 @@ export function KnowledgeList() {
   const createArticle = useCreateKnowledgeArticle();
   const updateArticle = useUpdateKnowledgeArticle();
   const deleteArticle = useDeleteKnowledgeArticle();
+  const askConfirm = useConfirm();
 
   const articles = data?.data ?? [];
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm(
-      "Delete this content? This action cannot be undone.",
-    );
+    const confirmed = await askConfirm({
+      title: "Delete this content?",
+      description: "This action cannot be undone.",
+      destructive: true,
+    });
     if (!confirmed) {
       return;
     }

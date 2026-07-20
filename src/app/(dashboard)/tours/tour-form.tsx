@@ -42,20 +42,19 @@ import {
 import { emptyAudienceLanguageRecord } from "@/lib/i18n/translations";
 import { resolveMediaUpload } from "@/lib/media/client";
 import { slugify } from "@/lib/slug";
-import type { TourDto } from "@/modules/tour/tour.types";
 import {
   tourFormSchema,
   type TourFormInput,
 } from "@/schemas/tour-form.schema";
-import type { CreateTourPayload, Tour } from "@/types/tour";
+import type { CreateTourPayload, TourDetail } from "@/types/tour";
 import { defaultMediaFieldValue } from "@/types/media";
 
 type TourFormProps = {
   mode: "create" | "edit";
-  defaultValues?: Tour | TourDto;
+  defaultValues?: TourDetail;
 };
 
-function toFormValues(tour?: Tour | TourDto): TourFormInput {
+function toFormValues(tour?: TourDetail): TourFormInput {
   return {
     cover: defaultMediaFieldValue,
     slug: tour?.slug ?? "",

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useDeleteAppUiString } from "@/hooks/mutations/use-app-content-mutations";
 import {
   useAppReleaseConfig,
@@ -26,10 +27,16 @@ export default function AppUiStringsPage() {
   });
   const { data: releaseData } = useAppReleaseConfig();
   const deleteString = useDeleteAppUiString();
+  const askConfirm = useConfirm();
   const records = data?.data ?? [];
 
   async function handleDelete(id: string, key: string) {
-    if (!window.confirm(`Delete UI string "${key}"?`)) {
+    const confirmed = await askConfirm({
+      title: `Delete UI string "${key}"?`,
+      destructive: true,
+    });
+
+    if (!confirmed) {
       return;
     }
 

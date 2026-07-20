@@ -297,10 +297,8 @@ in `aurelia-app`.
   cold start, and expired buckets are only overwritten if the same key returns, so attacker-chosen
   `deviceId`s grow it without bound. The DB-backed 5-attempt PIN lockout is the real brute-force
   defense — keep it. Needs Redis/Upstash to be meaningful.
-- ⚠️ **Every mobile download rebuilds and re-signs the whole bundle.**
-  `mobile-download.service.ts:41` passes `force: true`, so `bundleIsCurrent` can never hit the cache;
-  each request reloads the deep tour graph, re-signs, and writes an **audit row** — burying real
-  staff actions in the audit log.
+- ✅ ~~Every mobile download rebuilds and re-signs the whole bundle.~~ **Fixed 2026-07-20** (§11) —
+  artifacts now build after the cache check and the download path no longer forces.
 - ⚠️ **`requestOtp` is an email-enumeration oracle** (`mobile-auth.service.ts:293-295`) — throws
   "No tour access found for this email." for unknown emails. Contradicts the deliberate
   same-message design in `unlock` (lines 89-93). Legacy path; `verifyOtp` gets it right.
@@ -310,9 +308,11 @@ in `aurelia-app`.
   (`arrayBuffer()`) *before* the size cap is applied, so concurrent large POSTs can OOM.
 - ⏳ **No `error.tsx` / `loading.tsx` / `not-found.tsx` anywhere** (0 across 44 pages) — a render
   throw in any dashboard page hits the default Next error screen with no recovery.
-- ⏳ **No toast system and no `onError` on any mutation** (0 of 17 hooks). Deletes succeed and fail
-  silently; 19 `window.confirm` and 1 `window.alert` stand in for confirm/feedback UI. There is no
-  `AlertDialog`/`ConfirmDialog` primitive yet.
+- ✅ ~~No toast system and no `onError` on any mutation; 19 `window.confirm`.~~ **Fixed 2026-07-20**
+  (§11) — `sonner` + global `MutationCache`, and a promise-based `useConfirm`.
+  ⏳ Remaining: 18 forms still render an inline `submitError` alert *and* now also get a toast for
+  the same failure. Decide whether forms keep the inline alert (and opt out of the toast) or move to
+  toast-only.
 - ⏳ **No structured logging, error reporting, or runtime env validation.** Errors reach stdout via
   `console.*` only; missing env vars fail at first request rather than at boot.
 - ⚠️ **`noUncheckedIndexedAccess` is off** — `tsconfig` is otherwise strict. Real unsound spots:
@@ -402,8 +402,13 @@ in `aurelia-app`.
   shape — narrowing the shared one would ripple through all of them.
 - **Existence checks use a narrow `select`, never `tourRepository.findById`** — `findById` pulls the
   full content graph (spots, translations, FAQs, media, route edges incl. `footprintGeo`,
-  aiKnowledge). `host.service.ts` and `tour-access`'s `assertTours` do this correctly.
-  ⚠️ `ai-knowledge.service.ts` and `spot.service.ts` still call `findById` just to check existence.
+  aiKnowledge). Use `tourRepository.existsById` / `findIdBySlug`; `tour-access`'s `assertTours` is
+  the reference. (`ai-knowledge.service.ts` and `spot.service.ts` were fixed 2026-07-20.)
+- **One include per read shape, added alongside — never narrow a shared one.** `tourIncludeRelations`
+  (deep, for readiness/audit/bundle), `tourListInclude` (list rows), `tourDetailInclude`
+  (`GET /tours/[id]`). Narrowing the deep one breaks `mapAuditTour`/`mapTourForReadiness`, which
+  derive their types from `findById`'s shape, and the bundle builder, which spreads it. Adding a
+  sibling costs nothing and keeps them independent.
 
 ---
 
@@ -432,7 +437,7 @@ Runner: **Vitest 4** (`pnpm test`, `pnpm test:watch`, `pnpm test:coverage`). Con
 [vitest.config.ts](vitest.config.ts) — node environment, `src/**/*.test.ts`, v8 coverage scoped to
 `src/lib`, `src/modules`, `src/schemas`. Tests are co-located next to source (`*.test.ts`).
 
-**Status:** ✅ **205 tests / 26 files passing**; `pnpm check` clean (0 errors, 1 pre-existing
+**Status:** ✅ **217 tests / 28 files passing**; `pnpm check` clean (0 errors, 1 pre-existing
 `exhaustive-deps` warning in `host-form-dialog.tsx`).
 
 ⚠️ **The entire HTTP layer is untested** — 71 route handlers, 30 controllers, 21 of 30 modules have
@@ -453,6 +458,61 @@ are **deferred** (Phases 4–5). Full plan: `~/.claude/plans/ask-what-is-use-shi
 ---
 
 ## 11. Changelog
+
+- **2026-07-20** — **Query/payload optimization + admin feedback layer.** Two independent pieces
+  of work, both from the same review; no schema changes, no bundle-format changes, no mobile-repo
+  coordination needed.
+  - **Every mobile download re-signed the bundle — and so did every cached call.** The known issue
+    was `mobile-download.service.ts` passing `force: true`; the worse half was that
+    `buildTourBundleArtifacts` ran at `tour-bundle.service.ts:54`, **above** the `bundleIsCurrent`
+    check at `:56`. So an RSA-SHA256 signature plus three SHA-256 digests were computed on *every*
+    call, and the cache only ever saved the DB write. Artifacts now build after the early return;
+    `force` is dropped at the download site but **kept as an option** (documented) because it is the
+    only way to re-sign after a signing-key rotation. New `tour-bundle.service.test.ts` asserts the
+    builder is *not called* on a cache hit — verified by reverting the ordering, which fails that one
+    test and passes the rest. Result per unchanged-tour download: 1 signature + 3 digests + 1 UPDATE
+    + 1 audit row → **zero**.
+  - **`GET /tours/[id]` returned the whole content graph.** Six pages use it; five read only
+    `translations` for an `<h1>`, and the edit form reads `id/slug/coverMediaId/coverMedia/
+    translations`. New **`tourDetailInclude`** + `findDetailById` + `toTourDetailDto`, mirroring the
+    `tourListInclude` precedent. Measured against a copy of production: **143.4 KB → 3.7 KB, a 97.4%
+    reduction (39×)**. `tourIncludeRelations` and `findById` are **untouched** — the readiness check,
+    the audit snapshots and the bundle builder still need the depth, and the
+    `Awaited<ReturnType<typeof findById>>` derivations at `tour.service.ts:20,64` therefore never
+    move. ⚠️ **`toTourDto`/`TourDto` must stay as they are** — `tour-bundle.builder.ts:89,133` feeds
+    them into the offline bundle, so narrowing them would strip every spot from it.
+  - **Existence checks stopped loading the content graph.** `ai-knowledge.service.ts` and
+    `spot.service.ts` called `findById` (deep include) to answer "does this row exist", and
+    `findBySlug` did the same for `ensureUniqueSlug` on every create/slug-update. New
+    `tourRepository.existsById` / `findIdBySlug` (`select: { id: true }`), following the `assertTours`
+    precedent; `findBySlug` deleted. Closes the ⚠️ in §8.
+  - **`coverMedia` is now `{ id, url }`** in the list and detail includes — the full Media row shipped
+    nine columns including `key`, the R2 object key, to render a thumbnail. Client types split into
+    `TourDetail` / `TourListItem` / `Tour` (`src/types/tour.ts`) so the hand-written client contract
+    stops claiming `spots` on a detail response. **`tourIncludeRelations`'s `coverMedia` deliberately
+    left alone** — it flows into checksummed bundle content (§9).
+  - **`replaceTourRouteSchema.edges` capped at 200.** `replaceByFloor` validates edges in a
+    sequential loop at four queries each (`spotRepository.findById` is itself two round trips whose
+    deep include the caller discards). The endpoint has **no caller in this repo** — the "generate
+    route" button uses `generateFromSpots`, a 3-query path — so the cap bounds it rather than
+    rewriting untested, uncalled code. Comment at the loop records the batching fix if it ever gains
+    a caller.
+  - **Indexes deliberately NOT added** (`Tour.publishStatus`, `KnowledgeArticle.lifecycle`,
+    `User.createdAt`). All `Tour` reads are `findUnique` on `id`/`slug`, already covered by the PK and
+    `@unique`; `lifecycle` is a low-cardinality enum defaulting to `ACTIVE`, which a plain B-tree
+    would not serve. With one tour in production this is speculative write overhead. Revisit against
+    a real slow query.
+  - **Admin feedback layer:** `sonner` + a global `MutationCache` (`lib/query/client.ts`) — errors
+    toast the API's own message via `getApiErrorMessage`, successes toast `meta.successMessage`
+    (added to all 59 mutations; `useUpdateAppReleaseConfig` opts out because that panel autosaves per
+    field blur). Previously **0 of 17** mutation hooks had `onError`, so ~14 deletes failed silently
+    as unhandled rejections. New `ConfirmDialog` + promise-based `useConfirm` replaced **19
+    `window.confirm` and 1 `window.alert`**, and added confirmation to three destructive actions that
+    had none (media delete, spot FAQ delete, transition-point delete). The hook is bound as
+    `askConfirm`, never `confirm` — the latter shadows the global, so a missing hook call would
+    silently fall through to `window.confirm`.
+  - **Tests:** 205 → **217** (28 files). `pnpm check` clean apart from the pre-existing
+    `exhaustive-deps` warning; `pnpm build` passes.
 
 - **2026-07-20** — **Full-project review + four security fixes.** No new features; outcome of an
   end-to-end review of backend, admin frontend, and tooling. Findings and the remaining backlog are

@@ -96,6 +96,12 @@ export const tourRouteService = {
   ) {
     await ensureFloorInTour(tourId, floorId);
 
+    // Four queries per edge, sequentially: assertSpotsBelongToFloor looks up
+    // two spots, and spotRepository.findById is itself two round trips whose
+    // deep include this caller discards. The edges array is capped at 200 in
+    // the schema to bound that. Worth collapsing into a single
+    // findMany({ id: { in: [...] }, select: { id: true } }) if this endpoint
+    // ever gains a caller — nothing in this repo calls it today.
     for (const edge of input.edges) {
       await assertSpotsBelongToFloor(
         tourId,

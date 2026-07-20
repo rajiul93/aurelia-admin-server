@@ -38,6 +38,7 @@ import {
   spotMediaFormSchema,
   type SpotMediaFormInput,
 } from "@/schemas/spot-form.schema";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { defaultMediaFieldValue } from "@/types/media";
 import type { AudienceType } from "@/lib/i18n/audiences";
 import type { SpotMedia } from "@/types/spot";
@@ -99,6 +100,21 @@ export default function SpotMediaPage() {
   const { data, isLoading } = useSpot(params.tourId, params.spotId);
   const createMedia = useCreateSpotMedia(params.tourId, params.spotId);
   const deleteMedia = useDeleteSpotMedia(params.tourId, params.spotId);
+  const askConfirm = useConfirm();
+
+  async function handleDeleteMedia(mediaId: string) {
+    const confirmed = await askConfirm({
+      title: "Delete this media file?",
+      description: "It is removed from the spot and cannot be undone.",
+      destructive: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    await deleteMedia.mutateAsync(mediaId);
+  }
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [viewAudience, setViewAudience] = useState<AudienceType>(DEFAULT_AUDIENCE);
@@ -448,10 +464,10 @@ export default function SpotMediaPage() {
                       </p>
                     )}
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
-                      className="text-destructive"
-                      onClick={() => void deleteMedia.mutateAsync(media.id)}
+                      disabled={deleteMedia.isPending}
+                      onClick={() => void handleDeleteMedia(media.id)}
                     >
                       <Trash2 className="size-4" />
                       Delete

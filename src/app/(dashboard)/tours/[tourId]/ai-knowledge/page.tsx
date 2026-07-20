@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useDeleteAiKnowledge } from "@/hooks/mutations/use-ai-knowledge-mutations";
 import { useAiKnowledgeList } from "@/hooks/queries/use-ai-knowledge";
 import { useTour } from "@/hooks/queries/use-tours";
@@ -28,12 +29,18 @@ export default function AiKnowledgeListPage() {
   const { data, isLoading, isError, error, refetch } =
     useAiKnowledgeList(tourId);
   const deleteKnowledge = useDeleteAiKnowledge(tourId);
+  const askConfirm = useConfirm();
 
   const tour = tourResponse?.data;
   const records = data?.data ?? [];
 
   async function handleDelete(id: string, title: string) {
-    if (!window.confirm(`Delete AI knowledge "${title}"?`)) {
+    const confirmed = await askConfirm({
+      title: `Delete AI knowledge "${title}"?`,
+      destructive: true,
+    });
+
+    if (!confirmed) {
       return;
     }
 

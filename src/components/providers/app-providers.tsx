@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { setupAxiosInterceptors } from "@/lib/axios";
 import { createQueryClient } from "@/lib/query";
@@ -24,7 +26,10 @@ export function AppProviders({ children }: AppProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <ConfirmProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </ConfirmProvider>
+          <Toaster />
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>

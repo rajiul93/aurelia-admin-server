@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   useCreateFaqCategory,
   useDeleteFaqCategory,
@@ -30,6 +31,7 @@ export function CategoryList() {
   const createCategory = useCreateFaqCategory();
   const updateCategory = useUpdateFaqCategory();
   const deleteCategory = useDeleteFaqCategory();
+  const askConfirm = useConfirm();
 
   const categories = data?.data ?? [];
 
@@ -63,9 +65,11 @@ export function CategoryList() {
   }
 
   async function handleDelete(id: string) {
-    const confirmed = window.confirm(
-      "Delete this category? FAQs using it must be moved or deleted first.",
-    );
+    const confirmed = await askConfirm({
+      title: "Delete this category?",
+      description: "FAQs using it must be moved or deleted first.",
+      destructive: true,
+    });
 
     if (!confirmed) {
       return;

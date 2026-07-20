@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Form, FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   useCreateRouteEdge,
   useDeleteRouteEdge,
@@ -62,6 +63,7 @@ export default function TourRoutePage() {
   const { data: routeResponse, isLoading: routeLoading, isError, error } =
     useTourRoute(tourId, selectedFloorId);
 
+  const askConfirm = useConfirm();
   const createEdge = useCreateRouteEdge(tourId, selectedFloorId);
   const deleteEdge = useDeleteRouteEdge(tourId, selectedFloorId);
   const generateRoute = useGenerateTourRoute(tourId, selectedFloorId);
@@ -128,11 +130,15 @@ export default function TourRoutePage() {
   async function handleGenerate() {
     setSubmitError(null);
 
-    if (
-      !window.confirm(
-        "Replace the current route with edges ordered by spot sort order?",
-      )
-    ) {
+    const confirmed = await askConfirm({
+      title: "Regenerate this route?",
+      description:
+        "The current route is replaced with edges ordered by spot sort order.",
+      confirmLabel: "Regenerate",
+      destructive: true,
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -149,11 +155,13 @@ export default function TourRoutePage() {
   async function handleGenerateFootprints() {
     setSubmitError(null);
 
-    if (
-      !window.confirm(
-        "Generate walking footprints for every route edge using OSRM?",
-      )
-    ) {
+    const confirmed = await askConfirm({
+      title: "Generate walking footprints?",
+      description: "Every route edge is routed through OSRM.",
+      confirmLabel: "Generate",
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -167,7 +175,12 @@ export default function TourRoutePage() {
   }
 
   async function handleDelete(edgeId: string) {
-    if (!window.confirm("Delete this route edge?")) {
+    const confirmed = await askConfirm({
+      title: "Delete this route edge?",
+      destructive: true,
+    });
+
+    if (!confirmed) {
       return;
     }
 

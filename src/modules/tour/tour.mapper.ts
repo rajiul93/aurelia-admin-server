@@ -14,10 +14,12 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import type { AudienceType } from "@/lib/i18n/audiences";
 import type { Media as MediaDto } from "@/types/media";
 import type { QuillContentJson } from "./tour.quill";
-import type { TourListRecord } from "./tour.repository";
+import type { TourDetailRecord, TourListRecord } from "./tour.repository";
 import type {
   SpotFaqDto,
   SpotMediaDto,
+  TourCoverMediaDto,
+  TourDetailDto,
   TourDto,
   TourListItemDto,
 } from "./tour.types";
@@ -38,6 +40,16 @@ type TourWithRelations = Tour & {
     }
   >;
 };
+
+/**
+ * The admin list/detail cover. Only id and url — the full Media row also
+ * carries `key`, the R2 object key, which no browser needs.
+ */
+function mapCoverMedia(
+  media: { id: string; url: string } | null,
+): TourCoverMediaDto | null {
+  return media ? { id: media.id, url: media.url } : null;
+}
 
 function mapMedia(media: Media | null): MediaDto | null {
   if (!media) {
@@ -188,10 +200,15 @@ export function toTourDto(
   };
 }
 
-export function toTourListItemDto(
-  tour: TourListRecord,
+/**
+ * The fields the admin list and detail responses share. Both records carry the
+ * same narrow shape (translations + a {id,url} cover), so mapping them twice
+ * would have been a third copy of this block.
+ */
+function toTourSummaryFields(
+  tour: TourDetailRecord | TourListRecord,
   language?: AppLanguage,
-): TourListItemDto {
+) {
   const translations = tour.translations.map((entry) => ({
     language: entry.language as AppLanguage,
     audience: entry.audience as AudienceType,
@@ -209,7 +226,7 @@ export function toTourListItemDto(
     slug: tour.slug,
     placeId: tour.placeId,
     coverMediaId: tour.coverMediaId,
-    coverMedia: mapMedia(tour.coverMedia),
+    coverMedia: mapCoverMedia(tour.coverMedia),
     publishStatus: tour.publishStatus,
     tourBundleVersion: tour.tourBundleVersion,
     mediaVersion: tour.mediaVersion,
@@ -218,7 +235,6 @@ export function toTourListItemDto(
     publishedAt: tour.publishedAt?.toISOString() ?? null,
     archivedAt: tour.archivedAt?.toISOString() ?? null,
     translations,
-    spotCount: tour.floors.reduce((total, floor) => total + floor._count.spots, 0),
     ...(localized
       ? {
           language,
@@ -228,6 +244,26 @@ export function toTourListItemDto(
       : {}),
     createdAt: tour.createdAt.toISOString(),
     updatedAt: tour.updatedAt.toISOString(),
+  };
+}
+
+export function toTourDetailDto(
+  tour: TourDetailRecord,
+  language?: AppLanguage,
+): TourDetailDto {
+  return toTourSummaryFields(tour, language);
+}
+
+export function toTourListItemDto(
+  tour: TourListRecord,
+  language?: AppLanguage,
+): TourListItemDto {
+  return {
+    ...toTourSummaryFields(tour, language),
+    spotCount: tour.floors.reduce(
+      (total, floor) => total + floor._count.spots,
+      0,
+    ),
   };
 }
 

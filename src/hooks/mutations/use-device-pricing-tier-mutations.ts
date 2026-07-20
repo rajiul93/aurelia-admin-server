@@ -10,6 +10,7 @@ export function useCreateDevicePricingTier() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Pricing tier created" },
     mutationFn: (payload: CreateDevicePricingTierPayload) =>
       devicePricingTierService.create(payload),
     onSuccess: () => {
@@ -24,6 +25,7 @@ export function useUpdateDevicePricingTier() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Pricing tier updated" },
     mutationFn: ({
       id,
       payload,
@@ -46,6 +48,7 @@ export function useDeleteDevicePricingTier() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Pricing tier deleted" },
     mutationFn: (id: string) => devicePricingTierService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({

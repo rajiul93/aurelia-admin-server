@@ -7,6 +7,7 @@ export function useCreateHost(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Host created" },
     mutationFn: (payload: CreateHostPayload) =>
       hostsService.create(tourId, payload),
     onSuccess: () => {
@@ -24,6 +25,7 @@ export function useUpdateHost(tourId: string, hostId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Host updated" },
     mutationFn: (payload: UpdateHostPayload) =>
       hostsService.update(tourId, hostId, payload),
     onSuccess: () => {
@@ -44,6 +46,7 @@ export function useDeleteHost(tourId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Host deleted" },
     mutationFn: (hostId: string) => hostsService.delete(tourId, hostId),
     onSuccess: () => {
       void queryClient.invalidateQueries({

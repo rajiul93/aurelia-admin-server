@@ -4,6 +4,7 @@ import type {
   CreateTourPayload,
   PublishStatus,
   Tour,
+  TourDetail,
   TourLifecycleAction,
   TourListItem,
   TourReadiness,
@@ -19,7 +20,7 @@ export const toursService = {
 
   getById(id: string) {
     return apiClient
-      .get<ApiSuccess<Tour>>(`/tours/${id}`)
+      .get<ApiSuccess<TourDetail>>(`/tours/${id}`)
       .then((response) => response.data);
   },
 

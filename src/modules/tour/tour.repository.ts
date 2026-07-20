@@ -73,7 +73,7 @@ export const tourListInclude = {
   translations: {
     orderBy: { language: "asc" as const },
   },
-  coverMedia: true,
+  coverMedia: { select: { id: true, url: true } },
   floors: {
     select: {
       _count: { select: { spots: true } },
@@ -83,6 +83,26 @@ export const tourListInclude = {
 
 export type TourListRecord = Prisma.TourGetPayload<{
   include: typeof tourListInclude;
+}>;
+
+/**
+ * The detail view's include, for GET /tours/[id]. Same reasoning as
+ * tourListInclude, one step further: the six pages on this endpoint render a
+ * title, a slug and a cover, and fetch spots/floors/route through their own
+ * hooks. Nothing here needs the content graph.
+ *
+ * Keep this narrow. The deep tourIncludeRelations stays for the readiness
+ * check, the audit snapshots and the bundle builder — do not merge the two.
+ */
+export const tourDetailInclude = {
+  translations: {
+    orderBy: { language: "asc" as const },
+  },
+  coverMedia: { select: { id: true, url: true } },
+} satisfies Prisma.TourInclude;
+
+export type TourDetailRecord = Prisma.TourGetPayload<{
+  include: typeof tourDetailInclude;
 }>;
 
 type FindManyOptions = {
@@ -147,10 +167,33 @@ export const tourRepository = {
     });
   },
 
-  findBySlug(slug: string) {
+  findDetailById(id: string) {
+    return prisma.tour.findUnique({
+      where: { id },
+      include: tourDetailInclude,
+    });
+  },
+
+  /**
+   * Existence check, ids only. Callers that just need "does this tour exist"
+   * must use this rather than findById — findById pulls the full content graph
+   * (every floor, spot, translation, FAQ, media join and route edge with its
+   * footprintGeo) and then discards it. Same reasoning as assertTours in
+   * tour-access.service.ts.
+   */
+  async existsById(id: string) {
+    const tour = await prisma.tour.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    return tour !== null;
+  },
+
+  findIdBySlug(slug: string) {
     return prisma.tour.findUnique({
       where: { slug },
-      include: tourIncludeRelations,
+      select: { id: true },
     });
   },
 
