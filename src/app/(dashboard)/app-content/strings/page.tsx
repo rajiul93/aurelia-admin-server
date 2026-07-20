@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { LifecycleBadge } from "@/components/app-content/status-badges";
 import { useDeleteAppUiString } from "@/hooks/mutations/use-app-content-mutations";
 import {
   useAppReleaseConfig,
@@ -113,7 +114,7 @@ export default function AppUiStringsPage() {
                     <Badge variant="outline" className="font-mono">
                       {record.key}
                     </Badge>
-                    <Badge variant="secondary">{record.lifecycle}</Badge>
+                    <LifecycleBadge value={record.lifecycle} />
                   </div>
                   <CardTitle className="text-base font-normal">
                     {preferred?.value}

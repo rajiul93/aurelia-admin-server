@@ -5,7 +5,12 @@ import { ImageIcon, Loader2, Trash2, Upload } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { IMAGE_ACCEPT, MAX_IMAGE_SIZE_LABEL } from "@/lib/media/constants";
+import {
+  IMAGE_ACCEPT,
+  MAX_IMAGE_SIZE_LABEL,
+  PHONE_PREVIEW_FRAME_CLASS,
+  PHONE_PREVIEW_MEDIA_CLASS,
+} from "@/lib/media/constants";
 import { validateClientImageFile } from "@/lib/media/validation";
 import { cn } from "@/lib/utils";
 import type { MediaFieldValue } from "@/types/media";
@@ -23,7 +28,104 @@ type ImageUploadProps = {
   isUploading?: boolean;
   uploadProgress?: number;
   className?: string;
+  /**
+   * "phone" renders a tall 9:19.5 preview instead of the small square one, for
+   * artwork that fills a phone screen (app backgrounds). A square thumbnail
+   * crops those to the point where you cannot tell what you picked.
+   */
+  previewShape?: "square" | "phone";
 };
+
+function UploadControls({
+  inputRef,
+  previewUrl,
+  disabled,
+  isUploading,
+  uploadProgress,
+  displayError,
+  onChange,
+  onRemove,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  previewUrl: string | null;
+  disabled: boolean;
+  isUploading: boolean;
+  uploadProgress?: number;
+  displayError: string | null;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        className="hidden"
+        disabled={disabled || isUploading}
+        onChange={onChange}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled || isUploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {isUploading ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Uploading...
+            </>
+          ) : (
+            <>
+              <Upload className="mr-2 size-4" />
+              {previewUrl ? "Replace image" : "Select image"}
+            </>
+          )}
+        </Button>
+
+        {previewUrl ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={disabled || isUploading}
+            onClick={onRemove}
+          >
+            <Trash2 className="mr-2 size-4" />
+            Remove
+          </Button>
+        ) : null}
+      </div>
+
+      <p className="text-muted-foreground text-xs">
+        JPEG, PNG, WebP, or GIF. Max {MAX_IMAGE_SIZE_LABEL}. Images upload when
+        you save the form.
+      </p>
+
+      {isUploading && typeof uploadProgress === "number" ? (
+        <div className="space-y-1">
+          <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+            <div
+              className="bg-primary h-full transition-all"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Uploading {uploadProgress}%
+          </p>
+        </div>
+      ) : null}
+
+      {displayError ? (
+        <p className="text-destructive text-sm">{displayError}</p>
+      ) : null}
+    </>
+  );
+}
 
 export function ImageUpload({
   value,
@@ -36,6 +138,7 @@ export function ImageUpload({
   isUploading = false,
   uploadProgress,
   className,
+  previewShape = "square",
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -105,85 +208,71 @@ export function ImageUpload({
         ) : null}
       </div>
 
-      <div className="flex items-start gap-4">
-        <Avatar className="size-24 rounded-xl" data-size="lg">
-          {previewUrl ? (
-            <AvatarImage src={previewUrl} alt="Selected image preview" />
-          ) : null}
-          <AvatarFallback className="rounded-xl">
-            <ImageIcon className="text-muted-foreground size-8" />
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="flex flex-1 flex-col gap-2">
-          <input
-            ref={inputRef}
-            type="file"
-            accept={IMAGE_ACCEPT}
-            className="hidden"
-            disabled={disabled || isUploading}
-            onChange={handleInputChange}
-          />
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={disabled || isUploading}
-              onClick={() => inputRef.current?.click()}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  Uploading...
-                </>
+      {previewShape === "phone" ? (
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="space-y-2 lg:shrink-0">
+            <p className="text-muted-foreground text-center text-xs lg:text-left">
+              Phone preview (9:19.5)
+            </p>
+            <div className={PHONE_PREVIEW_FRAME_CLASS}>
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt="Selected image preview"
+                  className={PHONE_PREVIEW_MEDIA_CLASS}
+                />
               ) : (
-                <>
-                  <Upload className="mr-2 size-4" />
-                  {previewUrl ? "Replace image" : "Select image"}
-                </>
+                <div
+                  className={cn(
+                    PHONE_PREVIEW_MEDIA_CLASS,
+                    "bg-muted flex items-center justify-center",
+                  )}
+                >
+                  <ImageIcon className="text-muted-foreground size-12" />
+                </div>
               )}
-            </Button>
-
-            {previewUrl ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={disabled || isUploading}
-                onClick={handleRemove}
-              >
-                <Trash2 className="mr-2 size-4" />
-                Remove
-              </Button>
-            ) : null}
+            </div>
           </div>
 
-          <p className="text-muted-foreground text-xs">
-            JPEG, PNG, WebP, or GIF. Max {MAX_IMAGE_SIZE_LABEL}. Images upload when you save the
-            form.
-          </p>
-
-          {isUploading && typeof uploadProgress === "number" ? (
-            <div className="space-y-1">
-              <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-                <div
-                  className="bg-primary h-full transition-all"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-              <p className="text-muted-foreground text-xs">
-                Uploading {uploadProgress}%
-              </p>
-            </div>
-          ) : null}
-
-          {displayError ? (
-            <p className="text-destructive text-sm">{displayError}</p>
-          ) : null}
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <UploadControls
+              inputRef={inputRef}
+              previewUrl={previewUrl}
+              disabled={disabled}
+              isUploading={isUploading}
+              uploadProgress={uploadProgress}
+              displayError={displayError}
+              onChange={handleInputChange}
+              onRemove={handleRemove}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-start gap-4">
+          <Avatar className="size-24 rounded-xl" data-size="lg">
+            {previewUrl ? (
+              <AvatarImage src={previewUrl} alt="Selected image preview" />
+            ) : null}
+            <AvatarFallback className="rounded-xl">
+              <ImageIcon className="text-muted-foreground size-8" />
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <UploadControls
+              inputRef={inputRef}
+              previewUrl={previewUrl}
+              disabled={disabled}
+              isUploading={isUploading}
+              uploadProgress={uploadProgress}
+              displayError={displayError}
+              onChange={handleInputChange}
+              onRemove={handleRemove}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

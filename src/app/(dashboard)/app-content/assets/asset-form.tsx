@@ -135,7 +135,9 @@ export function AssetForm({ mode, defaultValues }: AssetFormProps) {
             <FormImageUpload
               name="media"
               label="Image"
+              description="Preview matches a typical phone screen (9:19.5) so you can judge how the asset will look in the app."
               existingMedia={defaultValues?.media}
+              previewShape="phone"
               isUploading={isPending && uploadProgress !== null}
               uploadProgress={uploadProgress ?? undefined}
               disabled={isPending}

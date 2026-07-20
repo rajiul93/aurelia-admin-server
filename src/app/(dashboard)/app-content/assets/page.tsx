@@ -1,23 +1,26 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { Pencil, Plus, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import Link from 'next/link';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useConfirm } from "@/components/ui/confirm-dialog";
-import { useDeleteAppAsset } from "@/hooks/mutations/use-app-content-mutations";
+} from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import {
+  LifecycleBadge,
+  TimeOfDayBadge,
+} from '@/components/app-content/status-badges';
+import { useDeleteAppAsset } from '@/hooks/mutations/use-app-content-mutations';
 import {
   useAppAssets,
   useAppReleaseConfig,
-} from "@/hooks/queries/use-app-content";
+} from '@/hooks/queries/use-app-content';
+import { PHONE_PREVIEW_LIST_IMAGE_CLASS } from '@/lib/media/constants';
+import { cn } from '@/lib/utils';
 
 export default function AppAssetsPage() {
   const { data, isLoading, isError, error, refetch } = useAppAssets({
@@ -50,12 +53,11 @@ export default function AppAssetsPage() {
             <Link href="/app-content" className="hover:underline">
               App Content
             </Link>
-            {" / Assets"}
+            {' / Assets'}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">App Assets</h1>
           <p className="text-muted-foreground text-sm">
-            appContentVersion:{" "}
-            {releaseData?.data?.appContentVersion ?? "—"}
+            appContentVersion: {releaseData?.data?.appContentVersion ?? '—'}
           </p>
         </div>
         <Button
@@ -68,9 +70,13 @@ export default function AppAssetsPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-56 w-full rounded-xl" />
+            <Card key={index} className="gap-0 py-0">
+              <CardContent className="flex justify-center p-4">
+                <Skeleton className="h-[520px] w-full max-w-[280px] rounded-[2rem]" />
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : null}
@@ -80,9 +86,13 @@ export default function AppAssetsPage() {
           <CardContent className="flex flex-col items-start gap-3 py-10">
             <p className="font-medium">Could not load assets</p>
             <p className="text-muted-foreground text-sm">
-              {error instanceof Error ? error.message : "Something went wrong."}
+              {error instanceof Error ? error.message : 'Something went wrong.'}
             </p>
-            <Button type="button" variant="outline" onClick={() => void refetch()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void refetch()}
+            >
               Try again
             </Button>
           </CardContent>
@@ -101,55 +111,52 @@ export default function AppAssetsPage() {
       ) : null}
 
       {!isLoading && !isError && records.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {records.map((record) => (
-            <Card key={record.id} className="overflow-hidden">
-              <div className="bg-muted relative h-36 overflow-hidden">
+            <Card key={record.id} className="group gap-0 py-0">
+              <CardContent className="flex justify-center p-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={record.media.url}
                   alt={record.key}
-                  className="size-full object-cover"
+                  className={cn(
+                    PHONE_PREVIEW_LIST_IMAGE_CLASS,
+                    'bg-muted transition-transform duration-300 group-hover:scale-[1.02]',
+                  )}
                 />
-              </div>
-              <CardHeader className="space-y-2 pb-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="font-mono">
-                    {record.key}
-                  </Badge>
+              </CardContent>
+
+              <CardFooter className="flex w-full flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {record.timeOfDay ? (
-                    <Badge variant="secondary">{record.timeOfDay}</Badge>
+                    <TimeOfDayBadge value={record.timeOfDay} />
                   ) : null}
-                  <Badge variant="outline">{record.lifecycle}</Badge>
+                  <LifecycleBadge value={record.lifecycle} />
                 </div>
-                <CardTitle className="text-sm font-normal">
-                  {record.media.originalName}
-                </CardTitle>
-              </CardHeader>
-              <CardFooter className="flex justify-end gap-2 border-t bg-muted/30 px-4 py-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link href={`/app-content/assets/${record.id}/edit`} />
-                  }
-                >
-                  <Pencil className="size-4" />
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  disabled={deleteAsset.isPending}
-                  onClick={() => void handleDelete(record.id, record.key)}
-                >
-                  <Trash2 className="size-4" />
-                  Delete
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={
+                      <Link href={`/app-content/assets/${record.id}/edit`} />
+                    }
+                  >
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={deleteAsset.isPending}
+                    onClick={() => void handleDelete(record.id, record.key)}
+                  >
+                    <Trash2 className="size-4" />
+                    Delete
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           ))}

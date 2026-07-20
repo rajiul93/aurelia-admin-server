@@ -47,5 +47,14 @@ export const MEDIA_ACCEPT = [
 ].join(",");
 
 export const MAX_IMAGE_SIZE_LABEL = "5 MB";
+
+/** Tall 9:19.5 frame — approx. a phone screen for app shell backgrounds. */
+export const PHONE_PREVIEW_MAX_WIDTH_CLASS = "max-w-[280px]";
+export const PHONE_PREVIEW_MEDIA_CLASS =
+  "aspect-[9/19.5] min-h-[480px] w-full object-cover";
+export const PHONE_PREVIEW_FRAME_CLASS =
+  "border-muted bg-muted/40 mx-auto w-full overflow-hidden rounded-[2rem] border-[3px] shadow-sm max-w-[280px]";
+export const PHONE_PREVIEW_LIST_IMAGE_CLASS =
+  "aspect-[9/19.5] min-h-[480px] w-full object-cover max-w-[280px] border-muted mx-auto block rounded-[2rem] border-[3px] shadow-sm";
 export const MAX_VIDEO_SIZE_LABEL = "100 MB";
 export const MAX_AUDIO_SIZE_LABEL = "100 MB";

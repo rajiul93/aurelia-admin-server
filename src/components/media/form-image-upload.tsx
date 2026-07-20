@@ -15,6 +15,7 @@ type FormImageUploadProps<T extends FieldValues> = {
   isUploading?: boolean;
   uploadProgress?: number;
   className?: string;
+  previewShape?: "square" | "phone";
 };
 
 export function FormImageUpload<T extends FieldValues>({
@@ -26,6 +27,7 @@ export function FormImageUpload<T extends FieldValues>({
   isUploading,
   uploadProgress,
   className,
+  previewShape,
 }: FormImageUploadProps<T>) {
   const { control, formState } = useFormContext<T>();
 
@@ -45,6 +47,7 @@ export function FormImageUpload<T extends FieldValues>({
           isUploading={isUploading}
           uploadProgress={uploadProgress}
           className={className}
+          previewShape={previewShape}
         />
       )}
     />
