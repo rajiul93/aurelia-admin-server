@@ -126,14 +126,14 @@ export default function AppAssetsPage() {
                 />
               </CardContent>
 
-              <CardFooter className="flex w-full flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-4 py-3">
-                <div className="flex flex-wrap items-center gap-1.5">
+              <CardFooter className="flex flex-col items-center gap-3 border-t bg-muted/30 px-4 py-3 text-center">
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
                   {record.timeOfDay ? (
                     <TimeOfDayBadge value={record.timeOfDay} />
                   ) : null}
                   <LifecycleBadge value={record.lifecycle} />
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <Button
                     type="button"
                     variant="outline"
