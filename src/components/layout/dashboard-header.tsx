@@ -13,7 +13,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { getPageTitle } from "@/utils/navigation";
-import { UserNav } from "@/components/layout/user-nav";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export function DashboardHeader() {
   const pathname = usePathname();
@@ -43,7 +43,7 @@ export function DashboardHeader() {
       </Breadcrumb>
 
       <div className="ml-auto flex items-center gap-2">
-        <UserNav />
+        <ThemeToggle />
       </div>
     </header>
   );
