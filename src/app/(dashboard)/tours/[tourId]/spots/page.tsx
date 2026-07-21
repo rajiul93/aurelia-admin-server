@@ -27,6 +27,7 @@ import {
   getPreferredAudienceTranslation,
 } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
+import type { Floor } from "@/types/floor";
 import type { Spot } from "@/types/spot";
 
 function formatCoords(lat: number | null, lng: number | null) {
@@ -90,10 +91,7 @@ function SpotsTableSkeleton() {
 
 const ALL_FLOORS_FILTER = "all";
 
-function floorFilterLabel(floor: {
-  floorNo: number;
-  translations: { language: string; audience: string; name: string }[];
-}) {
+function floorFilterLabel(floor: Pick<Floor, "floorNo" | "translations">) {
   const name = getPreferredAudienceTranslation(floor.translations)?.name;
   return name ? `${floor.floorNo}. ${name}` : `Floor ${floor.floorNo}`;
 }
