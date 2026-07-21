@@ -95,9 +95,9 @@
 
 .dark {
   --brand: #810b38;
-  --brand-cream: #f1e2d1;
-  --brand-tan: #dcc3aa;
-  --brand-deep: #541a1a;
+  --brand-cream: #541a1a;
+  --brand-tan: #541a1a;
+  --brand-deep: #f1e2d1;
 
   --background: #2a0d12;
   --foreground: #f1e2d1;
