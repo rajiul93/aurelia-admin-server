@@ -116,6 +116,12 @@ export const listTourAccessQuerySchema = z.object({
   status: tourAccessStatusSchema.optional(),
 });
 
+export const analyticsRangeSchema = z.enum(["7d", "30d", "12m", "yearly"]);
+
+export const tourAccessAnalyticsQuerySchema = z.object({
+  range: analyticsRangeSchema.default("7d"),
+});
+
 export const tourAccessIdParamSchema = z.object({
   id: z.string().trim().min(1),
 });
@@ -128,3 +134,5 @@ export const tourAccessSessionParamSchema = z.object({
 export type CreateTourAccessInput = z.output<typeof createTourAccessSchema>;
 export type UpdateTourAccessInput = z.output<typeof updateTourAccessSchema>;
 export type ListTourAccessQuery = z.output<typeof listTourAccessQuerySchema>;
+export type AnalyticsRange = z.output<typeof analyticsRangeSchema>;
+export type TourAccessAnalyticsQuery = z.output<typeof tourAccessAnalyticsQuerySchema>;

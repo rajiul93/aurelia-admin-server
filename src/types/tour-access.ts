@@ -1,8 +1,17 @@
-import type { TourAccessDto } from "@/modules/tour-access/tour-access.types";
+import type { AnalyticsRange } from "@/modules/tour-access/tour-access.schema";
+import type {
+  TourAccessAnalyticsSeriesDto,
+  TourAccessAnalyticsSummaryDto,
+  TourAccessDto,
+} from "@/modules/tour-access/tour-access.types";
 
 export type TourAccessStatus = TourAccessDto["status"];
 
 export type TourAccess = TourAccessDto;
+
+export type { AnalyticsRange };
+export type TourAccessAnalyticsSeries = TourAccessAnalyticsSeriesDto;
+export type TourAccessAnalyticsSummary = TourAccessAnalyticsSummaryDto;
 
 export type TourAccessTourInput = {
   tourId: string;

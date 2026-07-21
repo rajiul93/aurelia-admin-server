@@ -1,6 +1,7 @@
-import type { Prisma, TourAccessStatus } from "@/generated/prisma/client";
+import { Prisma, type TourAccessStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getPagination } from "@/lib/repository/base.repository";
+import type { BucketGranularity } from "./tour-access-analytics.util";
 
 const includeRelations = {
   tours: {
@@ -84,5 +85,39 @@ export const tourAccessRepository = {
 
   delete(id: string) {
     return prisma.tourAccess.delete({ where: { id } });
+  },
+
+  sumMaxDevicesByBucket(start: Date, end: Date, granularity: BucketGranularity) {
+    return prisma.$queryRaw<{ bucket: Date; total: number }[]>(Prisma.sql`
+      SELECT
+        date_trunc(${granularity}, "createdAt") AS bucket,
+        SUM("maxDevices")::int AS total
+      FROM "TourAccess"
+      WHERE "createdAt" >= ${start} AND "createdAt" < ${end}
+      GROUP BY bucket
+      ORDER BY bucket ASC
+    `);
+  },
+
+  async sumMaxDevicesInRange(start: Date, end: Date) {
+    const result = await prisma.tourAccess.aggregate({
+      _sum: { maxDevices: true },
+      where: { createdAt: { gte: start, lt: end } },
+    });
+    return result._sum.maxDevices ?? 0;
+  },
+
+  async sumMaxDevicesTotal() {
+    const result = await prisma.tourAccess.aggregate({
+      _sum: { maxDevices: true },
+    });
+    return result._sum.maxDevices ?? 0;
+  },
+
+  async earliestCreatedAt() {
+    const result = await prisma.tourAccess.aggregate({
+      _min: { createdAt: true },
+    });
+    return result._min.createdAt ?? null;
   },
 };

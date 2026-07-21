@@ -4,6 +4,7 @@ import { parseBody, parseParams, parseQuery } from "@/lib/api/validate";
 import {
   createTourAccessSchema,
   listTourAccessQuerySchema,
+  tourAccessAnalyticsQuerySchema,
   tourAccessIdParamSchema,
   tourAccessSessionParamSchema,
   updateTourAccessSchema,
@@ -86,6 +87,17 @@ export const tourAccessController = {
   async delete(req: NextRequest, id: string, staffAuthUserId: string) {
     await tourAccessService.delete(id, getAuditContext(req, staffAuthUserId));
     return success({ deleted: true });
+  },
+
+  async getAnalyticsSeries(req: NextRequest) {
+    const query = parseQuery(req.nextUrl.searchParams, tourAccessAnalyticsQuerySchema);
+    const result = await tourAccessService.getAnalyticsSeries(query);
+    return success(result);
+  },
+
+  async getAnalyticsSummary() {
+    const result = await tourAccessService.getAnalyticsSummary();
+    return success(result);
   },
 
   parseId(params: Record<string, string | string[] | undefined>) {

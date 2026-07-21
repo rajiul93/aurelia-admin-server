@@ -39,3 +39,23 @@ export type TourAccessDto = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type AnalyticsGranularity = "day" | "month" | "year";
+
+export type TourAccessAnalyticsSeriesPoint = {
+  date: string;
+  label: string;
+  value: number;
+};
+
+export type TourAccessAnalyticsSeriesDto = {
+  series: TourAccessAnalyticsSeriesPoint[];
+  granularity: AnalyticsGranularity;
+};
+
+export type TourAccessAnalyticsSummaryDto = {
+  today: number;
+  last7Days: number;
+  thisMonth: number;
+  total: number;
+};

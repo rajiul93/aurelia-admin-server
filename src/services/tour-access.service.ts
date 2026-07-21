@@ -1,9 +1,12 @@
 import { apiClient } from "@/lib/axios";
 import type { ApiSuccess, ListParams } from "@/types/api";
 import type {
+  AnalyticsRange,
   CreateTourAccessPayload,
   DeviceSession,
   TourAccess,
+  TourAccessAnalyticsSeries,
+  TourAccessAnalyticsSummary,
   TourAccessStatus,
   UpdateTourAccessPayload,
 } from "@/types/tour-access";
@@ -56,6 +59,22 @@ export const tourAccessService = {
       .post<
         ApiSuccess<{ revoked: boolean; sessionId: string; deviceId: string }>
       >(`/tour-access/${accessId}/sessions/${sessionId}/revoke`)
+      .then((response) => response.data);
+  },
+
+  getAnalyticsSeries(range: AnalyticsRange) {
+    return apiClient
+      .get<ApiSuccess<TourAccessAnalyticsSeries>>("/tour-access/analytics", {
+        params: { range },
+      })
+      .then((response) => response.data);
+  },
+
+  getAnalyticsSummary() {
+    return apiClient
+      .get<ApiSuccess<TourAccessAnalyticsSummary>>(
+        "/tour-access/analytics/summary",
+      )
       .then((response) => response.data);
   },
 };

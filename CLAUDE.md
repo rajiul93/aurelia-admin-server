@@ -9,7 +9,7 @@
 
 **Status legend:** ✅ Completed · 🚧 In Progress · ⚠️ Known Issue · ⏳ Pending · ❌ Not Started
 
-Last updated: **2026-07-20**
+Last updated: **2026-07-21** (dashboard device-access analytics)
 
 ---
 
@@ -121,6 +121,12 @@ a consistent slice: `*.controller.ts` (HTTP glue), `*.service.ts` (business logi
   Stripe checkout. Pricing math [subscription-purchase.pricing.ts](src/modules/subscription-purchase/subscription-purchase.pricing.ts).
   **Stripe** integration ([src/lib/stripe/](src/lib/stripe/)) with webhook at
   [/api/v1/webhooks/stripe](src/app/api/v1/webhooks/stripe/route.ts).
+- ✅ **Dashboard device-access analytics** — bar chart + 4 summary cards on `/dashboard` (ADMIN-only,
+  same gate as the existing access-grants card) showing `SUM(TourAccess.maxDevices)` bucketed by
+  `createdAt`, with a Last 7 Days/30 Days/12 Months/Yearly filter. Pure aggregation over existing
+  data, not a new activity-tracking system — see §11 for why "active users" isn't what this measures.
+  [tour-access-analytics.util.ts](src/modules/tour-access/tour-access-analytics.util.ts),
+  `GET /tour-access/analytics(/summary)`.
 - ✅ **Users** — consumer `User` model (name/age/email/phone/password/language/role) + admin CRUD.
 - ✅ **Audit log** — `AuditLog` records module/action/entity/prev+new value/ip; service
   [audit.service.ts](src/lib/audit/audit.service.ts); admin viewer.
@@ -243,7 +249,7 @@ Base: `/api/v1`. Response envelope + errors via [src/lib/api/response.ts](src/li
 - `tours/[tourId]/bundles/build`, `.../bundles/latest`, `.../bundles/latest/download`
 - `media`(+`[id]`), `faqs`(+`[id]`), `faq-categories`(+`[id]`), `knowledge-articles`(+`[id]`)
 - `app-assets`(+`[id]`), `app-ui-strings`(+`[id]`), `app-release-config`
-- `tour-access`(+`[id]`, `/revoke`, `/sessions`(+`[sessionId]/revoke`))
+- `tour-access`(+`[id]`, `/revoke`, `/sessions`(+`[sessionId]/revoke`), `/analytics`, `/analytics/summary`)
 - `subscription-plans`(+`[id]`), `device-pricing-tiers`(+`[id]`), `subscription-pricing-settings`,
   `subscription-purchases`
 - `users`(+`[id]`), `staff-profile/me`, `audit-logs`
@@ -437,7 +443,7 @@ Runner: **Vitest 4** (`pnpm test`, `pnpm test:watch`, `pnpm test:coverage`). Con
 [vitest.config.ts](vitest.config.ts) — node environment, `src/**/*.test.ts`, v8 coverage scoped to
 `src/lib`, `src/modules`, `src/schemas`. Tests are co-located next to source (`*.test.ts`).
 
-**Status:** ✅ **217 tests / 28 files passing**; `pnpm check` clean (0 errors, 1 pre-existing
+**Status:** ✅ **232 tests / 29 files passing**; `pnpm check` clean (0 errors, 1 pre-existing
 `exhaustive-deps` warning in `host-form-dialog.tsx`).
 
 ⚠️ **The entire HTTP layer is untested** — 71 route handlers, 30 controllers, 21 of 30 modules have
@@ -458,6 +464,56 @@ are **deferred** (Phases 4–5). Full plan: `~/.claude/plans/ask-what-is-use-shi
 ---
 
 ## 11. Changelog
+
+- **2026-07-21** — **Dashboard "Analytics": device-access-granted chart + summary cards.** The admin
+  asked for a "daily active users" chart. There is no activity-tracking system anywhere in this
+  codebase — no event log; the closest fields (`DeviceSession.lastVerifiedAt`,
+  `DeviceRegistration.lastActiveAt`) are overwritten in place, not logged, and several of the
+  most-called mobile endpoints (`app-content`, `catalog`, `knowledge-pack`, `release-config`) never
+  touch them at all — so a true historical "how many people used the app on day X" cannot be
+  computed retroactively. Told this, the admin gave a different, concrete definition instead:
+  **for each day, sum `TourAccess.maxDevices` across every grant created that day** — total
+  device-seats granted, not distinct usage (e.g. 3 buyers granted 1/10/5 devices same day → 16).
+  This is exactly the data already shown per-row on `/access`'s `DeviceSeatMeter` — so this shipped
+  as a **pure aggregation over existing data**, no new tracking/schema/migration.
+  - **New pure util** [tour-access-analytics.util.ts](src/modules/tour-access/tour-access-analytics.util.ts) —
+    UTC calendar-boundary window resolvers (`resolveFixedRangeWindow` for 7d/30d/12m,
+    `resolveYearlyWindow` spanning the earliest grant's year through now) + `fillMissingBuckets`
+    (zero-fills every day/month/year in range from sparse DB rows, `Intl.DateTimeFormat` pinned to
+    `timeZone: "UTC"` so label formatting can't drift with the server's local TZ). Fully unit-tested,
+    no Prisma import.
+  - **First use of `$queryRaw` in this codebase** — `tourAccessRepository.sumMaxDevicesByBucket` uses
+    `date_trunc(${granularity}, "createdAt")` grouped `SUM("maxDevices")::int`. The `::int` cast is
+    load-bearing: an uncast `SUM` over an `Int` column comes back as Postgres `bigint` → JS `BigInt`,
+    which `NextResponse.json()` throws on serializing the first time any bucket is non-zero. Bucketed
+    by `createdAt` (immutable, set once at insert) — deliberately **not** `activatedAt` (admin-editable,
+    can be future-dated) or `updatedAt` (touched by unrelated edits like PIN resets).
+  - **Two endpoints, not one**: `GET /tour-access/analytics?range=7d|30d|12m|yearly` (chart series) and
+    `GET /tour-access/analytics/summary` (today/last7Days/thisMonth/total, always-current). Split so
+    flipping the range dropdown doesn't needlessly refetch the 4 summary cards, which don't depend on
+    `range`. Both gated `requireStaffRole("ADMIN")`, matching the existing `/tour-access` list route.
+  - **Frontend**: new `recharts@2.15.4` dependency — **pinned to v2, not v3**, since v3 pulls in
+    `@reduxjs/toolkit`/`immer`/`react-redux` internally for one bar chart; v2 supports React 19 as a
+    peer with a much lighter tree. (npm flags 2.x as deprecated upstream in favor of v3 — accepted
+    trade-off, revisit if a second chart ever needs v3-only features.) Bar chart, not line — each
+    bucket is an independent per-period sum, not a continuously flowing quantity. New
+    [device-access-analytics.tsx](src/app/(dashboard)/dashboard/device-access-analytics.tsx) section
+    (cards + chart, one shared fetch each via `useTourAccessAnalyticsSummary`/`Series`, not four
+    separate fetches); `dashboard-ui.tsx` extracted from `page.tsx` (`STAT_CARD_SHELL`/`SectionHeading`
+    were unexported locals, needed by the new section too). Card labels say "device access granted,"
+    deliberately not "active users" — the metric doesn't measure usage, and calling it that would
+    misstate what's shown.
+  - Explicitly avoided repeating the existing `AccessGrantsStatCard` anti-pattern (fetches
+    `limit:100` and does client-side `.filter().length`, silently wrong past 100 rows) — the new
+    cards use real server-side `aggregate()` calls, correct at any scale.
+  - New tests: `tour-access-analytics.util.test.ts` (window/zero-fill boundary cases, incl. a
+    Dec→Jan rollover and an off-by-one guard at the exclusive end boundary) +
+    `tourAccessAnalyticsQuerySchema` coverage in the existing schema test file. 217→**232 tests**.
+    `pnpm check` clean.
+  - ⏳ **Not verified in-browser** — confirmed via curl that both new routes correctly 401 without a
+    session (auth gate wired correctly), but a full logged-in walkthrough needs a staff ADMIN login
+    (Neon Auth) this session didn't have. Typecheck/lint/test are clean; visual verification (chart
+    renders, filter switches granularity, tooltip shows exact counts) is still open.
 
 - **2026-07-20** — **Query/payload optimization + admin feedback layer.** Two independent pieces
   of work, both from the same review; no schema changes, no bundle-format changes, no mobile-repo

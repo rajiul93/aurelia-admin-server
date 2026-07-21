@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createTourAccessSchema,
   listTourAccessQuerySchema,
+  tourAccessAnalyticsQuerySchema,
   updateTourAccessSchema,
 } from "./tour-access.schema";
 
@@ -172,6 +173,27 @@ describe("listTourAccessQuerySchema", () => {
   it("caps the limit at 100", () => {
     expect(
       listTourAccessQuerySchema.safeParse({ limit: 500 }).success,
+    ).toBe(false);
+  });
+});
+
+describe("tourAccessAnalyticsQuerySchema", () => {
+  it("defaults range to 7d when omitted", () => {
+    const result = tourAccessAnalyticsQuerySchema.safeParse({});
+    expect(result.data).toMatchObject({ range: "7d" });
+  });
+
+  it("accepts each supported range", () => {
+    for (const range of ["7d", "30d", "12m", "yearly"]) {
+      expect(
+        tourAccessAnalyticsQuerySchema.safeParse({ range }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects an unsupported range", () => {
+    expect(
+      tourAccessAnalyticsQuerySchema.safeParse({ range: "90d" }).success,
     ).toBe(false);
   });
 });

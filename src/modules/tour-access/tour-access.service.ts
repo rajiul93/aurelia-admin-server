@@ -12,9 +12,16 @@ import { tourAccessRepository } from "./tour-access.repository";
 import type {
   CreateTourAccessInput,
   ListTourAccessQuery,
+  TourAccessAnalyticsQuery,
   UpdateTourAccessInput,
 } from "./tour-access.schema";
 import type { DeviceSessionDto } from "./tour-access.types";
+import {
+  fillMissingBuckets,
+  granularityForRange,
+  resolveFixedRangeWindow,
+  resolveYearlyWindow,
+} from "./tour-access-analytics.util";
 
 function mapAuditAccess(
   access: Awaited<ReturnType<typeof tourAccessRepository.findById>>,
@@ -342,5 +349,50 @@ export const tourAccessService = {
       previousValue: mapAuditAccess(existing),
       context: audit,
     });
+  },
+
+  async getAnalyticsSeries(query: TourAccessAnalyticsQuery) {
+    const now = new Date();
+    const granularity = granularityForRange(query.range);
+
+    const { start, end } =
+      query.range === "yearly"
+        ? resolveYearlyWindow(await tourAccessRepository.earliestCreatedAt(), now)
+        : resolveFixedRangeWindow(query.range, now);
+
+    const rows = await tourAccessRepository.sumMaxDevicesByBucket(
+      start,
+      end,
+      granularity,
+    );
+
+    return {
+      series: fillMissingBuckets(rows, start, end, granularity),
+      granularity,
+    };
+  },
+
+  async getAnalyticsSummary() {
+    const now = new Date();
+    // Reuse the "7d" window's own boundary math so the summary cards and the
+    // chart's day buckets can never disagree about where "today" starts.
+    const { start: last7Start, end: todayEnd } = resolveFixedRangeWindow(
+      "7d",
+      now,
+    );
+    const todayStart = new Date(todayEnd);
+    todayStart.setUTCDate(todayStart.getUTCDate() - 1);
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+
+    const [today, last7Days, thisMonth, total] = await Promise.all([
+      tourAccessRepository.sumMaxDevicesInRange(todayStart, todayEnd),
+      tourAccessRepository.sumMaxDevicesInRange(last7Start, todayEnd),
+      tourAccessRepository.sumMaxDevicesInRange(monthStart, todayEnd),
+      tourAccessRepository.sumMaxDevicesTotal(),
+    ]);
+
+    return { today, last7Days, thisMonth, total };
   },
 };

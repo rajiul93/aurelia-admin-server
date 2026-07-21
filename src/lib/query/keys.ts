@@ -1,4 +1,5 @@
 import type { ListParams } from "@/types/api";
+import type { AnalyticsRange } from "@/types/tour-access";
 
 export const queryKeys = {
   users: {
@@ -75,6 +76,10 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.tourAccess.details(), id] as const,
     sessions: (id: string) =>
       [...queryKeys.tourAccess.all, "sessions", id] as const,
+    analyticsSeries: (range: AnalyticsRange) =>
+      [...queryKeys.tourAccess.all, "analytics", "series", range] as const,
+    analyticsSummary: () =>
+      [...queryKeys.tourAccess.all, "analytics", "summary"] as const,
   },
   tourRoute: {
     all: ["tour-route"] as const,
